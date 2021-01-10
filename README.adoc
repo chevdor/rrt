@@ -1,0 +1,3 @@
+== RRT: Registrar Remark Token
+
+This is a Rust implementation of my RRT token. Same than what I did in Typescript.
