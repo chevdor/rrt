@@ -1,3 +1,20 @@
 == RRT: Registrar Remark Token
 
-This is a Rust implementation of my RRT token. Same than what I did in Typescript.
+This is a Rust implementation of my RRT token. Same than what I did in Typescript beside the bugs I found in the initial Typescript implementation while writting the Rust version !
+
+=== Versions
+
+The first two digits are the registrar index. The 2 next are for a version number.
+That allows evolving how the token is encoded/decoded.
+
+The versions are encoded as HEX fro 00 to FF. So we have 255 options.
+
+In my first version, I encoded the checksum on a single digit but I never used that version. I will allocated 2 bytes for the checksum to allow more complex and robust (against position swapping for instance) checksums.
+
+The initial version also did not inlucde the networkId, I will add it as it may help when people run simultaneous verifications and paste the wrong token on the wrong chain.
+
+Here is the history / description of the versions:
+
+- 00: This is the first version. The checksum is a rather naive (=simple) custom implementation. This checksum implementation is NOT robust against position swapping. So ABCDEF and BACDEF will have the same checksum :(
+- 01: This version uses a Fletcher 16 checksum
+- 02: This is a planned test using a Blake hash on 2 bytes

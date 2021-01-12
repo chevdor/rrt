@@ -1,75 +1,38 @@
-use crate::checksum::Checksum;
+use crate::channel::channel_to_string;
+pub use crate::channel::Channel;
 use crate::checksum::*;
+use crate::checksum_v00::ChecksumV00;
+// use crate::checksum_v01::ChecksumV01;
+pub use crate::network::Network;
 use crate::utils::*;
+pub use crate::version::Version;
 use rand::Rng;
 use std::convert::From;
 use std::fmt::Display;
 use std::str;
-
-/// Supported channels
-#[derive(Debug, PartialEq)]
-pub enum Channel {
-    Unknown,
-    Email,
-    Matrix,
-    Twitter,
-}
-
-pub fn channel_to_string(c: &Channel) -> Option<String> {
-    match c {
-        Channel::Email => Some(String::from("EM")),
-        Channel::Twitter => Some(String::from("TW")),
-        Channel::Matrix => Some(String::from("MX")),
-        _ => None,
-    }
-}
-
-impl From<&str> for Channel {
-    fn from(ch: &str) -> Self {
-        return match &ch {
-            &"TW" => Channel::Twitter,
-            &"EM" => Channel::Email,
-            &"MX" => Channel::Matrix,
-            _ => Channel::Unknown,
-        };
-    }
-}
 
 impl Display for RRT {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
         write!(f, "{}", self.format_string(&""))
     }
 }
-// pub fn string_to_channel(s: &str) -> Option<Channel> {
-//     match s.to_ascii_uppercase().as_str() {
-//         "EM" => Some(Channel::Email),
-//         "TW" => Some(Channel::Twitter),
-//         "MX" => Some(Channel::Matrix),
-//         _ => None,
-//     }
-// }
 
 /// Generate a random string of 'length' chars
 /// The string is made of ascii chars from 65 to 90 (CAPS).
 pub fn get_token(length: usize) -> String {
     let mut rng = rand::thread_rng();
-    let chars: Vec<u8> = (0..length)
-        .map(|_| {
-            // 1 (inclusive) to 21 (exclusive)
-            rng.gen_range(65..=90)
-        })
-        .collect();
+    let chars: Vec<u8> = (0..length).map(|_| rng.gen_range(65..=90)).collect();
     String::from(str::from_utf8(&chars).unwrap())
 }
 
 /// An RRT token looks like (dashes are for readability):
 /// 01-00-02B21-TW-RAJQFIZW-O
 /// Content is coded in hex.
-/// 
+///
 /// You can display your RRT token using:
 /// ```
-/// use rrtlib::rrt::{Channel, RRT};
-/// let token = RRT::new(1,0, 12345, Channel::Email);
+/// use rrtlib::rrt::{Channel, Network, Version, RRT};
+/// let token = RRT::new(Network::Polkadot, 1, Version::V00, 12345, Channel::Email);
 /// println!("{}", token);
 /// println!("{:?}", token);
 /// println!("{:#?}", token);
@@ -77,11 +40,14 @@ pub fn get_token(length: usize) -> String {
 /// ```
 #[derive(Debug)]
 pub struct RRT {
+    /// Network
+    network: Network,
+
     /// Registrar index 0..255
     index: u8,
 
     /// RRT Token version 0..255
-    version: u8,
+    version: Version,
 
     /// The case_id of our process
     case_id: u64,
@@ -92,32 +58,41 @@ pub struct RRT {
     /// The random token
     token: String,
 
-    /// The displayable checksum of the data
-    checksum: u8,
+    /// The supported checksum algos
+    checksum_v00: ChecksumV00, // TODO: make it a Vec<>
+                               // checksum_v01: ChecksumV01,
 }
 
 impl RRT {
     /// Generate a new token and return a new RRT
-    pub fn new(index: u8, version: u8, case_id: u64, channel: Channel) -> Self {
+    pub fn new(
+        network: Network,
+        index: u8,
+        version: Version,
+        case_id: u64,
+        channel: Channel,
+    ) -> Self {
         let token = get_token(8);
         debug_assert!(
             token.len() == 8,
             "The generated token does not have the right length"
         );
-        Self {
+
+        Self::new_with_token(
+            network,
             index,
             version,
             case_id,
             channel,
-            token,
-            checksum: 0, // FIXME
-        }
+            &String::from(token),
+        )
     }
 
     /// Unlike ::new(...), here you must pass the token
     pub fn new_with_token(
+        network: Network,
         index: u8,
-        version: u8,
+        version: Version,
         case_id: u64,
         channel: Channel,
         token: &str,
@@ -127,12 +102,23 @@ impl RRT {
             "The passed token does not have the right length"
         );
         Self {
+            network,
             index,
             version,
             case_id,
             channel,
             token: String::from(token),
-            checksum: 0, // FIXME
+            checksum_v00: ChecksumV00::new(),
+            // checksum_v01: ChecksumV01::new(),
+        }
+    }
+
+    /// Returns the checksum algo to use depending on the version
+    //TODO: we create new instances every time, can be improved
+    fn get_checksum_algo(version: Version) -> Box<dyn RRTChecksum> {
+        match version {
+            Version::V00 => Box::new(ChecksumV00::new()),
+            Version::V01 => Box::new(ChecksumV00::new()),
         }
     }
 
@@ -141,15 +127,15 @@ impl RRT {
     ///
     /// Example:
     /// ```
-    /// use rrtlib::rrt::{Channel, RRT};
-    /// let token = RRT::new(1, 0, 11041, Channel::Twitter);
+    /// use rrtlib::rrt::{Channel, Network, Version, RRT};
+    /// let token = RRT::new(Network::Polkadot, 1, Version::V00, 11041, Channel::Twitter);
     /// println!("{}", token.format_string("-"))
     /// ```
     pub fn format_string(&self, sep: &str) -> String {
         format!(
             "{RG}{S}{VV}{S}{CASE}{S}{CH}{S}{TOKEN_ID}{S}{C}",
             RG = dec2hex(self.index, 2),
-            VV = dec2hex(self.version, 2),
+            VV = dec2hex(self.version as u8, 2),
             CASE = dec2hex(self.case_id, 5),
             CH = channel_to_string(&self.channel).unwrap(), // FIXME
             TOKEN_ID = self.token,
@@ -167,28 +153,37 @@ impl RRT {
             ));
         }
 
+        // Now we know that s is a token
         let s = &s.unwrap();
-        let check = RRT::check(&s);
-        if RRT::check(s).is_err() {
+
+        // let v = Version::from(s);
+        // let algo = RRT::get_checksum_algo(Version::V00);
+        // let check = algo.calculate(s.as_bytes());
+        let check = RRT::check(s, &ChecksumV00::new()); // TODO: stop making new ones...
+
+        if check.is_err() {
             panic!("Invalid RRT {}: {:?}", s, check.err());
             // return None;
         }
 
+        // 02_01_00_12345_TW_BABAEFGH_K (V00)
+        // 0  2  4  6     11 13
         // TODO: handle errors better
-        let index = u8::from_str_radix(&s[0..2], 16).unwrap();
-        let version = u8::from_str_radix(&s[2..4], 16).unwrap();
-        let case_id = u64::from_str_radix(&s[4..9], 16).unwrap();
-        let ch = &s[9..11];
-        let channel = Channel::from(ch);
-        let token = String::from(&s[11..19]);
+        let network = Network::from(&s[0..2]);
+        let index = u8::from_str_radix(&s[2..4], 16).unwrap();
+        let version = Version::from(&s[4..6]);
+        let case_id = u64::from_str_radix(&s[6..11], 16).unwrap();
+        let channel = Channel::from(&s[11..13]);
+        let token = String::from(&s[13..21]);
 
         Ok(RRT::new_with_token(
-            index, version, case_id, channel, &token,
+            network, index, version, case_id, channel, &token,
         ))
     }
 
+    /// This function
     pub fn clean_token_string(s: &str) -> Result<String, String> {
-        const SIZE: usize = 20;
+        const SIZE: usize = 22; // TODO: get that from the RRT struct the length depends also on the length of the checksum
 
         // TODO: workaround... https://github.com/rust-lang/rust/issues/37854
         const SIZEM: usize = SIZE - 1;
@@ -211,8 +206,8 @@ impl RRT {
     /// Returns whether a given token is valid or not.
     /// This function does that by re-caclulating the checksum and
     /// comparing with the one that was
-    pub fn check(s: &str) -> Result<(), String> {
-        const SIZE: usize = 20;
+    pub fn check(s: &str, algo: &ChecksumV00) -> Result<(), String> {
+        const SIZE: usize = 22;
 
         // TODO: workaround... https://github.com/rust-lang/rust/issues/37854
         const SIZEM: usize = SIZE - 1;
@@ -227,16 +222,21 @@ impl RRT {
                 Err(e) => return Err(e),
             },
         };
+        // println!("***** size ok");
+        // println!("***** Working on {}", s);
+
+        // let checksum = match self.version {
+        //     Version::V00 => ChecksumV00::new(),
+        //     // Version::V01 => ChecksumV01::new(),
+        // };
 
         // If the token it too short, we cannot do much.. this is just wrong
-
-        // println!("***** size ok");
         let raw = &cleaned[..SIZE - 1];
-        // println!("***** raw: {}", raw);
-        let expected = Checksum::calculate(raw);
-        // println!("***** exp: {}", expected);
-        let found: u8 = cleaned.as_bytes()[SIZE - 1];
-        // println!("***** fnd: {}", found);
+        let expected = algo.calculate(raw.as_bytes())[0];
+        let found: u8 = cleaned.as_bytes()[SIZE - 1]; // TODO: RRTChecksum should have a get_checksum()
+                                                      // println!("***** raw: {}", raw);
+                                                      // println!("***** exp: {}", expected);
+                                                      // println!("***** fnd: {}", found);
         match found == expected {
             true => Ok(()),
             false => Err(format!(
@@ -251,6 +251,9 @@ impl RRT {
 mod tests_rrt {
     use super::*;
 
+    const CHAIN: Network = Network::Kusama;
+    const VERSION: Version = Version::V00;
+
     #[test]
     fn it_generate_a_8_chars_token() {
         let token = get_token(8);
@@ -259,85 +262,109 @@ mod tests_rrt {
 
     #[test]
     fn it_makes_a_rrt() {
-        let token = RRT::new(1, 0, 11041, Channel::Twitter);
+        let token = RRT::new(CHAIN, 1, VERSION, 11041, Channel::Twitter);
         assert_eq!(token.to_string().len(), 20);
     }
 
     #[test]
     fn it_makes_a_rrt_with_token() {
-        let token = RRT::new_with_token(1, 0, 11041, Channel::Twitter, "ABNCDEFG");
+        let token = RRT::new_with_token(CHAIN, 1, VERSION, 11041, Channel::Twitter, "ABNCDEFG");
         assert_eq!(token.to_string().len(), 20);
     }
 
     #[test]
     fn it_makes_a_token_from_string() {
-        let token = RRT::from_string("010012345TWBABAEFGHJ").unwrap();
+        let token = RRT::from_string("02010012345TWBABAEFQKQ").unwrap();
         assert_eq!(token.to_string().len(), 20);
     }
 
     #[test]
     fn it_fails_making_a_token_from_bad_string() {
-        let token = RRT::from_string("0100145TWBABAEFGHJ");
+        let token = RRT::from_string("0100145TWBABAEFGHK");
         assert!(token.is_err());
     }
 
     #[test]
     fn it_makes_a_token_from_string_with_seps() {
-        let token = RRT::from_string("01-00_12345 TW/BABAEFGH:J").unwrap();
+        let token = RRT::from_string("42-01-00_12345 TW/BABAEFGH:H").unwrap();
+        // orig: 42-01-00_12345 TW/BABAEFGH:J
+        // mine:    42010012345TWBABAEFGHJ
+        // cleaned: 42010012345TWBABAEFGHJ
+        // raw:     42010012345TWBABAEF
         assert_eq!(token.to_string().len(), 20);
     }
 
     #[test]
     fn it_cleans_token_str() {
         assert_eq!(
-            RRT::clean_token_string("010012345TWBABAEFGHJ").unwrap(),
-            "010012345TWBABAEFGHJ"
+            RRT::clean_token_string("00010012345TWBABAEFGHJ").unwrap(),
+            "00010012345TWBABAEFGHJ"
         );
         assert_eq!(
-            RRT::clean_token_string("01-00_12345 TW/BABAEFGH:J").unwrap(),
-            "010012345TWBABAEFGHJ"
+            RRT::clean_token_string("0001-00_12345 TW/BABAEFGH:J").unwrap(),
+            "00010012345TWBABAEFGHJ"
         );
-        assert!(RRT::clean_token_string("010012345TWBABAEFGH").is_err());
+
+        // it fails when the string is too short from the start
+        assert!(RRT::clean_token_string("42010012345TWB").is_err());
     }
 
     #[test]
     fn it_generates_a_token() {
-        let token = RRT::new(1, 0, 11041, Channel::Twitter);
+        let token = RRT::new(CHAIN, 1, VERSION, 11041, Channel::Twitter);
         assert_eq!(token.to_string().len(), 20);
     }
 
     #[test]
     fn it_generates_a_token_with() {
-        let token = RRT::new_with_token(1, 0, 11041, Channel::Twitter, "12345678");
+        let token = RRT::new_with_token(CHAIN, 1, VERSION, 11041, Channel::Twitter, "12345678");
         assert_eq!(token.to_string().len(), 20);
     }
 
     #[test]
     fn it_passes_checksum_test() {
-        let check = RRT::check("010002B21TWRAJQFIZWR");
+        let algo: ChecksumV00 = ChecksumV00::new();
+
+        let check = RRT::check("01000012345TWRAJQFIZWF", &algo);
+        // println!("check {:?}", check);
         assert!(check.is_ok());
     }
 
     #[test]
     fn it_fails_with_bad_checksum() {
-        assert!(RRT::check("JUNK").is_err());
-        assert!(RRT::check("010002B21TWRAJQFIZWT").is_err());
+        let algo: ChecksumV00 = ChecksumV00::new();
+
+        assert!(RRT::check("JUNK", &algo).is_err());
+        assert!(RRT::check("010002B21TWRAJQFIZWT", &algo).is_err());
     }
 
     #[test]
     fn it_parses_a_valid_token() {
-        let token = "010002B21TWRAJQFIZWR";
-        assert!(RRT::check(token).is_ok());
-        assert_eq!(RRT::check(token), Ok(()));
+        let algo: ChecksumV00 = ChecksumV00::new();
+
+        let token = "01000012345TWRAJQFIZWF";
+        // let check = RRT::check(&token);
+        // println!("check {:?}", check);
+        assert!(RRT::check(token, &algo).is_ok());
+        assert_eq!(RRT::check(token, &algo), Ok(()));
     }
 
     #[test]
     fn it_parses_fields() {
-        let t1 = RRT::new(1, 0, 12345, Channel::Twitter);
+        let t1 = RRT::new(CHAIN, 1, VERSION, 12345, Channel::Twitter);
         assert_eq!(t1.index, 1);
-        assert_eq!(t1.version, 0);
+        assert_eq!(t1.version, Version::V00);
         assert_eq!(t1.case_id, 12345);
         assert_eq!(t1.channel, Channel::Twitter);
+    }
+
+    #[test]
+    fn it_print_a_rrt_in_various_ways() {
+        let rrt = RRT::new(CHAIN, 1, VERSION, 12345, Channel::Twitter);
+        println!("{}", rrt);
+        println!("{}", rrt.format_string("_"));
+        println!("{:?}", rrt);
+        println!("{:#?}", rrt);
     }
 }
 

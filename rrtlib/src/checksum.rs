@@ -1,65 +1,32 @@
-pub struct Checksum;
+use crate::checksum_v00::ChecksumV00;
+use crate::version::Version;
 
-pub trait Calculate {
-    fn calculate(s: &str) -> u8;
-    fn calculates_from_bytes(s: &[u8]) -> u8;
+pub trait RRTChecksum {
+    // fn calculate<T>(s: T) -> u8;
+    // fn calculate(s: &str) -> T; // TODO: remove that
+    fn calculate(&self, s: &[u8]) -> Vec<u8>;
+
+    // TODO: I would prefer each Algo to define their return value, V00 -> u8, V01, [u8; 2]
+
+    /// Used internally by is_valid(...)
+    fn verify(&self, data: &[u8], checksum: u8) -> bool;
+
+    /// Runs various tests to check whether a token is valid or not.
+    /// This function does NOT verify the checksum.
+    fn is_valid(&self, s: &[u8]) -> bool;
 }
 
-pub trait Verify {
-    fn verify(data: [u8], checksum: u8) -> bool;
+pub enum Algo {
+    V00(ChecksumV00),
+    // ChecksumV01,
 }
 
-impl Calculate for Checksum {
-    fn calculate(s: &str) -> u8 {
-        let content = s.as_bytes();
-        Self::calculates_from_bytes(content)
-    }
+/// Given a u8 buffer, this function fetches the version
+/// and returns the associated Algo
+pub fn get_algo(s: &str) -> Option<Algo> {
+    let version = Version::from(s);
 
-    /// We want a checksum being a value 65..90
-    /// So we take the modulo 26 and shift to the first char.  
-    fn calculates_from_bytes(s: &[u8]) -> u8 {
-        let sum = s.iter().fold(0u8, |acc, &x| acc.wrapping_add(x));
-        (sum % 26) + 65
-    }
-}
+    assert_eq!(version, Version::V00);
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_calculates() {
-        assert_eq!(Checksum::calculate("A"), 78);
-    }
-
-    #[test]
-    fn it_calculates_from_bytes() {
-        assert_eq!(Checksum::calculates_from_bytes(b"A"), 78);
-    }
-
-    #[test]
-    fn it_calculates_from_str() {
-        // TODO: Fix that, all the checksums should be 65..=90
-        assert_eq!(Checksum::calculates_from_bytes(b"0"), 87);
-        assert_eq!(Checksum::calculates_from_bytes(b"1"), 88);
-        assert_eq!(Checksum::calculates_from_bytes(b"A"), 78);
-        assert_eq!(Checksum::calculates_from_bytes(b"AA"), 65);
-        assert_eq!(Checksum::calculates_from_bytes(b"AB09"), 67);
-        assert_eq!(Checksum::calculates_from_bytes(b"ZZZZZZ"), 67);
-        assert_eq!(Checksum::calculates_from_bytes(b"010012345TWBABAEFGH"), 74);
-    }
-
-    #[test]
-    fn it_has_a_checksum_always_between_65_and_90() {
-        // TODO: Fix that, all the checksums should be 65..=90
-        let mut s = String::new();
-
-        for _ in 1..26 * 100 {
-            s += "A";
-            // println!("{}", s);
-            let checksum = Checksum::calculates_from_bytes(s.as_bytes());
-            assert!(checksum >= 65); // Ascii A
-            assert!(checksum <= 90); // Ascii Z
-        }
-    }
+    Some(Algo::V00(ChecksumV00::new())) // TODO: pwaaa... that does not look great
 }
