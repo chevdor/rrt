@@ -21,8 +21,9 @@ impl From<&str> for Version {
     fn from(vstr: &str) -> Self {
         const START: usize = 4;
         let v: &str = match vstr.len() {
-            2 => &vstr[START..START + 2],
-            _ => &vstr,
+            2 => &vstr,
+            x if x < 2 => panic!(format!("Cannot get a version in {}", vstr)),
+            _ => &vstr[START..START + 2],
         };
 
         return match &v {

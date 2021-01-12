@@ -1,4 +1,6 @@
-#[derive(Debug, PartialEq)]
+use std::fmt::Display;
+
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Network {
     Polkadot = 0,
     Kusama = 2,
@@ -15,5 +17,22 @@ impl From<&str> for Network {
             &"42" => Network::Westend,
             _ => Network::Unsupported,
         };
+    }
+}
+
+impl Into<String> for Network {
+    fn into(self) -> String {
+        match self {
+            Network::Polkadot => String::from("Polkadot"),
+            Network::Kusama => String::from("Kusama"),
+            Network::Westend => String::from("Westend"),
+            _ => String::from("n/a"),
+        }
+    }
+}
+
+impl Display for Network {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+        write!(fmt, "{:?}", self)
     }
 }

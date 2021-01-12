@@ -1,7 +1,7 @@
 use crate::checksum::RRTChecksum;
 
 // type Output = u8; // TODO: I would prefer this to be used instead of the next
-type Output = [u8];
+// type Output = [u8];
 
 #[derive(Debug)]
 pub struct ChecksumV00 {
@@ -11,6 +11,10 @@ pub struct ChecksumV00 {
 impl ChecksumV00 {
     pub fn new() -> Self {
         Self { checksum: None }
+    }
+
+    pub fn checksum(&self) -> Option<u8> {
+        self.checksum
     }
 }
 

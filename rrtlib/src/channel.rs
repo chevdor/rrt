@@ -1,5 +1,7 @@
+use std::fmt::Display;
+
 /// Supported channels
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Channel {
     Unknown,
     Email,
@@ -26,6 +28,12 @@ impl From<&str> for Channel {
             &"MX" => Channel::Matrix,
             _ => Channel::Unknown,
         };
+    }
+}
+
+impl Display for Channel {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+        write!(fmt, "{:?}", channel_to_string(self))
     }
 }
 

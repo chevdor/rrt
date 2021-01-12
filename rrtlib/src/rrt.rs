@@ -85,6 +85,7 @@ impl RRT {
             case_id,
             channel,
             &String::from(token),
+            None,
         )
     }
 
@@ -96,6 +97,7 @@ impl RRT {
         case_id: u64,
         channel: Channel,
         token: &str,
+        checksum: Option<u8>,
     ) -> Self {
         assert!(
             token.len() == 8,
@@ -113,14 +115,46 @@ impl RRT {
         }
     }
 
-    /// Returns the checksum algo to use depending on the version
-    //TODO: we create new instances every time, can be improved
-    fn get_checksum_algo(version: Version) -> Box<dyn RRTChecksum> {
-        match version {
-            Version::V00 => Box::new(ChecksumV00::new()),
-            Version::V01 => Box::new(ChecksumV00::new()),
-        }
+    pub fn index(&self) -> u8 {
+        self.index
     }
+
+    pub fn version(&self) -> u8 {
+        self.version as u8
+    }
+
+    pub fn network(&self) -> (u8, String) {
+        (self.network as u8, "todo".into())
+    }
+
+    pub fn case_id(&self) -> u64 {
+        self.case_id
+    }
+
+    pub fn channel(&self) -> Channel {
+        self.channel
+    }
+
+    pub fn token(&self) -> String {
+        self.token.clone()
+    }
+
+    pub fn checksum(&self) -> Option<u8> {
+        self.checksum_v00.checksum()
+    }
+
+    pub fn is_valid(&self) -> bool {
+        self.checksum_v00.is_valid(&format!("{}", self).as_bytes())
+    }
+
+    // Returns the checksum algo to use depending on the version
+    //TODO: we create new instances every time, can be improved
+    // fn get_checksum_algo(version: Version) -> Box<dyn RRTChecksum> {
+    //     match version {
+    //         Version::V00 => Box::new(ChecksumV00::new()),
+    //         Version::V01 => Box::new(ChecksumV00::new()),
+    //     }
+    // }
 
     /// Allows formatting the token with separator. This is mainly used
     /// in the cli and for debugging.
@@ -133,9 +167,10 @@ impl RRT {
     /// ```
     pub fn format_string(&self, sep: &str) -> String {
         format!(
-            "{RG}{S}{VV}{S}{CASE}{S}{CH}{S}{TOKEN_ID}{S}{C}",
+            "{RG}{S}{VV}{S}{NET}{S}{CASE}{S}{CH}{S}{TOKEN_ID}{S}{C}",
             RG = dec2hex(self.index, 2),
             VV = dec2hex(self.version as u8, 2),
+            NET = dec2hex(self.network as u8, 2),
             CASE = dec2hex(self.case_id, 5),
             CH = channel_to_string(&self.channel).unwrap(), // FIXME
             TOKEN_ID = self.token,
@@ -161,10 +196,10 @@ impl RRT {
         // let check = algo.calculate(s.as_bytes());
         let check = RRT::check(s, &ChecksumV00::new()); // TODO: stop making new ones...
 
-        if check.is_err() {
-            panic!("Invalid RRT {}: {:?}", s, check.err());
-            // return None;
-        }
+        // if check.is_err() {
+        //     panic!("Invalid RRT {}: {:?}", s, check.err());
+        //     // return None;
+        // }
 
         // 02_01_00_12345_TW_BABAEFGH_K (V00)
         // 0  2  4  6     11 13
@@ -175,9 +210,15 @@ impl RRT {
         let case_id = u64::from_str_radix(&s[6..11], 16).unwrap();
         let channel = Channel::from(&s[11..13]);
         let token = String::from(&s[13..21]);
-
+        let checksum = s.chars().nth(0).unwrap() as u8;
         Ok(RRT::new_with_token(
-            network, index, version, case_id, channel, &token,
+            network,
+            index,
+            version,
+            case_id,
+            channel,
+            &token,
+            Some(checksum),
         ))
     }
 
@@ -268,7 +309,8 @@ mod tests_rrt {
 
     #[test]
     fn it_makes_a_rrt_with_token() {
-        let token = RRT::new_with_token(CHAIN, 1, VERSION, 11041, Channel::Twitter, "ABNCDEFG");
+        let token =
+            RRT::new_with_token(CHAIN, 1, VERSION, 11041, Channel::Twitter, "ABNCDEFG", None);
         assert_eq!(token.to_string().len(), 20);
     }
 
@@ -317,7 +359,8 @@ mod tests_rrt {
 
     #[test]
     fn it_generates_a_token_with() {
-        let token = RRT::new_with_token(CHAIN, 1, VERSION, 11041, Channel::Twitter, "12345678");
+        let token =
+            RRT::new_with_token(CHAIN, 1, VERSION, 11041, Channel::Twitter, "12345678", None);
         assert_eq!(token.to_string().len(), 20);
     }
 
