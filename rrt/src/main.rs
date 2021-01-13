@@ -1,6 +1,6 @@
-use clap::{Clap, crate_version, crate_authors};
+use clap::{crate_authors, crate_version, Clap};
 
-use rrtlib::rrt::RRT;
+// use rrtlib::rrt::RRT;
 
 /// This doc string acts as a help message when the user runs '--help'
 /// as do all doc strings on fields
@@ -14,16 +14,32 @@ struct Opts {
 fn main() {
     let opts: Opts = Opts::parse();
     println!("input: {}", opts.token);
-    let token = RRT::from_string(&opts.token).expect("This is not a valid token");
-    println!("token: {}", token.format_string("-"));
-    println!("       │  │  │  │     │  │        └╴╴╴╴checksum: {:?}", token.checksum());
-    println!("       │  │  │  │     │  └╴╴╴╴╴╴╴╴╴token: {}", token.token());
-    println!("       │  │  │  │     └╴╴╴╴╴╴╴╴channel: {}", token.channel());
-    println!("       │  │  │  └╴╴╴╴╴╴╴╴╴╴case Id: {}", token.case_id());
-    println!("       │  │  └╴╴╴╴╴╴╴╴╴version: 0x{:02x}", token.version());
-    println!("       │  └╴╴╴╴╴╴╴╴network: {}-{}", token.network().0, token.network().1);
-    println!("       └╴╴╴╴╴╴╴registrar #{}", token.index());
-    
-    println!("This token is {}", if token.is_valid() { "VALID" } else { "INVALID" });
+    // let token = RRT::from_string(&opts.token).expect("This is not a valid token");
+    // println!("token: {}", token.format_string("-"));
+    // println!(
+    //     "       │  │  │  │     │  │        └╴╴╴╴checksum: {:?}",
+    //     token.checksum()
+    // );
+    // println!(
+    //     "       │  │  │  │     │  └╴╴╴╴╴╴╴╴╴token: {}",
+    //     token.token()
+    // );
+    // println!(
+    //     "       │  │  │  │     └╴╴╴╴╴╴╴╴channel: {}",
+    //     token.channel()
+    // );
+    // println!("       │  │  │  └╴╴╴╴╴╴╴╴╴╴case Id: {}", token.case_id());
+    // println!("       │  │  └╴╴╴╴╴╴╴╴╴version: 0x{:02x}", token.version());
+    // println!(
+    //     "       │  └╴╴╴╴╴╴╴╴network: {}-{}",
+    //     token.network().0,
+    //     token.network().1
+    // );
+    // println!("       └╴╴╴╴╴╴╴registrar #{}", token.index());
+
+    // println!(
+    //     "This token is {}",
+    //     if token.is_valid() { "VALID" } else { "INVALID" }
+    // );
     // println!("{:#?}", token);
 }

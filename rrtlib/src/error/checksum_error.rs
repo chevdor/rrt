@@ -17,10 +17,8 @@ impl Debug for ChecksumError {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
         write!(
             fmt,
-            format!(
-                "Wrong checksum in {}. Got {}={}, expected {}={}",
-                s, found, found as char, expected, expected as char,
-            )
+            "Wrong checksum. Got {}={}, expected {}={}",
+            self.found, self.found as char, self.expected, self.expected as char,
         )
     }
 }

@@ -1,0 +1,83 @@
+= Working sample
+
+----
+
+
+trait Foo {
+    fn work(&self) where Self: std::fmt::Debug {
+        println!("default {:?}", self);
+    }
+}
+
+#[derive(Debug)]
+struct Type1 {
+    data: Vec<u8>,
+}
+
+impl Foo for Type1 {
+     fn work(&self)  {
+        println!("T1 {:?}", self);
+    }
+}
+
+impl Type1 {
+    pub fn new(data: &[u8]) -> Self {
+        Self { data: data.to_vec() }
+    }
+}
+
+impl Type2 {
+    pub fn new(data: &[u8]) -> Self {
+        Self { data: data.to_vec(), bar: 42 }
+    }
+}
+
+#[derive(Debug)]
+struct Type2 {
+    data: Vec<u8>,
+    bar: u8,
+}
+
+impl Foo for Type2 {
+     fn work(&self)  {
+        println!("T2 {:?}", self);
+    }
+}
+
+#[derive(Debug)]
+enum Type {
+    T1(Type1),
+    T2(Type2),
+}
+
+impl Foo for Type {
+    fn work(&self) {
+        match self {
+            Type::T1(t) => t.work(),
+            Type::T2(t) => t.work(),
+        }
+    }
+}
+
+struct Builder {}
+
+impl Builder {
+    fn build(data: &[u8]) -> Option<impl Foo + std::fmt::Debug> {
+        match data.iter().nth(0) {
+            Some(1) => Some(Type::T1(Type1::new(data))),
+            Some(2) => Some(Type::T2(Type2::new(data))),
+            _ => None,
+        }
+    }
+}
+
+fn main() {
+    let b1 = Builder::build(&[1, 10, 20]).unwrap();      // Builds a Type1
+    
+    let b2 = Builder::build(&[2, 20, 20, 30]).unwrap();   // Builds a Type2
+    
+    // Goal:
+    b1.work();
+    b2.work();
+}
+----

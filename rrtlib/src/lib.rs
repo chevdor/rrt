@@ -1,9 +1,8 @@
-mod channel;
+pub mod builder;
 pub mod checksum;
-mod checksum_v00;
-// mod checksum_v01;
-// mod checksum_error; // TODO bring it in
-mod network;
-pub mod rrt;
+pub mod detector;
+pub mod error;
+// pub mod rrt;
+pub mod types;
 mod utils;
-mod version;
+pub mod versions;

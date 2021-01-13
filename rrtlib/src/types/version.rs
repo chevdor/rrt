@@ -1,6 +1,7 @@
 //! This file contains the list of the supported versions
 use std::convert::Into;
 use std::fmt::Display;
+use std::str::FromStr;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Version {
@@ -17,8 +18,17 @@ pub enum Version {
     //VFF = 0xFF,
 }
 
-impl From<&str> for Version {
-    fn from(vstr: &str) -> Self {
+#[derive(Debug, PartialEq)]
+pub enum VersionError {
+    /// The version in the token string is not supported
+    ParseError(String),
+
+    UnsupportedVersion(u8),
+}
+
+impl FromStr for Version {
+    type Err = VersionError;
+    fn from_str(vstr: &str) -> std::result::Result<Self, <Self as std::str::FromStr>::Err> {
         const START: usize = 4;
         let v: &str = match vstr.len() {
             2 => &vstr,
@@ -27,10 +37,13 @@ impl From<&str> for Version {
         };
 
         return match &v {
-            &"00" => Version::V00,
-            &"01" => Version::V01,
+            &"00" => Ok(Version::V00),
+            &"01" => Ok(Version::V01),
             // &"02" => Version::V02,
-            _ => panic!(format!("Version {:?} is currently not supported", v)),
+            v if v.parse::<u8>().is_ok() => {
+                Err(VersionError::UnsupportedVersion(v.parse().unwrap()))
+            }
+            _ => Err(VersionError::ParseError(String::from(vstr))),
         };
     }
 }
@@ -55,29 +68,39 @@ mod tests_rrt {
     #[test]
     fn it_converts_to_string() {
         let v1 = Version::V01;
-        assert_eq!(v1.to_string(), String::from("01"));
+        assert_eq!("01", &v1.to_string());
     }
 
     #[test]
     fn it_converts_from_string() {
-        assert_eq!(Version::from("01"), Version::V01);
+        assert_eq!(Version::from_str("01"), Ok(Version::V01));
     }
 
     #[test]
-    #[should_panic(expected = "not supported")]
-    fn it_converts_from_bad_string() {
-        let _ = Version::from("XX");
+    fn it_errors_on_unparsable_version() {
+        assert_eq!(
+            Version::from_str("XX"),
+            Err(VersionError::ParseError("XX".into()))
+        );
+    }
+
+    #[test]
+    fn it_errors_on_unsupported_version() {
+        assert_eq!(
+            Version::from_str("99"),
+            Err(VersionError::UnsupportedVersion(99))
+        );
     }
 
     #[test]
     #[should_panic(expected = "not supported")]
     fn it_converts_from_bad_string2() {
-        let _ = Version::from("01010212345TWBABAEFGH");
+        let _ = Version::from_str("01010212345TWBABAEFGH");
     }
 
     #[test]
     fn it_converts_from_full_token() {
-        assert_eq!(Version::from("01000012345TWBABAEFGH"), Version::V00);
-        assert_eq!(Version::from("01010112345TWBABAEFGH"), Version::V01);
+        assert_eq!(Version::from_str("01000012345TWBABAEFGH"), Ok(Version::V00));
+        assert_eq!(Version::from_str("01010112345TWBABAEFGH"), Ok(Version::V01));
     }
 }

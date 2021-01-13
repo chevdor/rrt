@@ -1,4 +1,4 @@
-use crate::checksum::RRTChecksum;
+use crate::checksum::checksum::RRTChecksum;
 use fletcher::generic_fletcher::Fletcher;
 use std::fmt::Debug;
 
@@ -33,14 +33,17 @@ impl RRTChecksum for ChecksumV01 {
 
     /// We want a checksum being a value 65..90
     /// So we take the modulo 26 and shift to the first char.  
-    fn calculate(&self, data: &[u8]) -> &[u8] {
+    fn calculate(&mut self, data: &[u8]) -> [u8; 2] {
         self.fletcher.update(&data);
 
         let v_u16 = self.fletcher.value();
-        &[(v_u16 >> 8) as u8, v_u16 as u8]
+        [(v_u16 >> 8) as u8, v_u16 as u8]
     }
 
     fn verify(&self, _: &[u8], _: u8) -> bool {
+        todo!()
+    }
+    fn is_valid(&self, _: &[u8]) -> bool {
         todo!()
     }
 }
@@ -49,20 +52,24 @@ impl RRTChecksum for ChecksumV01 {
 mod tests {
     use super::*;
 
-    static mut checksum: ChecksumV01 = ChecksumV01::new();
-
     #[test]
     fn it_calculates() {
+        let mut checksum = ChecksumV01::new();
+
         assert_eq!(checksum.calculate("A".as_bytes()), [1, 2]);
     }
 
     #[test]
     fn it_calculate() {
+        let mut checksum = ChecksumV01::new();
+
         assert_eq!(checksum.calculate(b"A"), [1, 2]);
     }
 
     #[test]
     fn it_calculates_from_str() {
+        let mut checksum = ChecksumV01::new();
+
         // TODO: Fix that, all the checksums should be 65..=90
         assert_eq!(checksum.calculate(b"0"), [1, 2]);
         assert_eq!(checksum.calculate(b"1"), [1, 2]);
@@ -75,6 +82,8 @@ mod tests {
 
     #[test]
     fn it_has_a_checksum_always_between_65_and_90() {
+        let mut checksum = ChecksumV01::new();
+
         let mut s = String::new();
 
         for _ in 1..26 * 100 {
@@ -90,6 +99,8 @@ mod tests {
 
     #[test]
     fn it_prevents_typical_swaps() {
+        let mut checksum = ChecksumV01::new();
+
         assert!(checksum.calculate(b"AB") != checksum.calculate(b"BA"));
         // assert!(
         //     checksum.calculate("010012345TWBABAEFGH")
