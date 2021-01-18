@@ -1,6 +1,7 @@
 //! This file contains the list of the supported versions
 use std::convert::Into;
 use std::fmt::Display;
+use std::fmt::LowerHex;
 use std::str::FromStr;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -55,6 +56,12 @@ impl Into<String> for Version {
     }
 }
 
+impl LowerHex for Version {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+        write!(fmt, "{:02?}", *self as u32)
+    }
+}
+
 impl Display for Version {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
         write!(fmt, "{:02?}", *self as u32)
@@ -93,7 +100,6 @@ mod tests_rrt {
     }
 
     #[test]
-    #[should_panic(expected = "not supported")]
     fn it_converts_from_bad_string2() {
         let _ = Version::from_str("01010212345TWBABAEFGH");
     }

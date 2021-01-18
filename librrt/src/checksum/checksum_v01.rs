@@ -1,10 +1,11 @@
-use crate::checksum::checksum::RRTChecksum;
+use crate::checksum::checksum::Checksum;
 use fletcher::generic_fletcher::Fletcher;
 use std::fmt::Debug;
 
 type Output = [u8; 2];
 type Fletcher16 = Fletcher<u16, u8>;
 
+/// This second version, based on fletcher16 is much better than the v00 version.
 pub struct ChecksumV01 {
     fletcher: Fletcher16,
     checksum: Option<Output>,
@@ -25,26 +26,20 @@ impl ChecksumV01 {
     }
 }
 
-impl RRTChecksum for ChecksumV01 {
-    // fn calculate(s: &str) -> Output {
-    //     let content = s.as_bytes();
-    //     Self::calculate(content)
-    // }
-
+impl Checksum<Output> for ChecksumV01 {
     /// We want a checksum being a value 65..90
     /// So we take the modulo 26 and shift to the first char.  
     fn calculate(&mut self, data: &[u8]) -> [u8; 2] {
+        // let mut dat = data.clone();
         self.fletcher.update(&data);
-
         let v_u16 = self.fletcher.value();
-        [(v_u16 >> 8) as u8, v_u16 as u8]
+        let to_ascii_caps = |i| i % 26 + 65;
+        [to_ascii_caps(v_u16 >> 8) as u8, to_ascii_caps(v_u16) as u8]
     }
 
-    fn verify(&self, _: &[u8], _: u8) -> bool {
-        todo!()
-    }
-    fn is_valid(&self, _: &[u8]) -> bool {
-        todo!()
+    /// Getter
+    fn checksum(&self) -> Option<Output> {
+        self.checksum
     }
 }
 
@@ -56,14 +51,7 @@ mod tests {
     fn it_calculates() {
         let mut checksum = ChecksumV01::new();
 
-        assert_eq!(checksum.calculate("A".as_bytes()), [1, 2]);
-    }
-
-    #[test]
-    fn it_calculate() {
-        let mut checksum = ChecksumV01::new();
-
-        assert_eq!(checksum.calculate(b"A"), [1, 2]);
+        assert_eq!(checksum.calculate("A".as_bytes()), [78, 78]);
     }
 
     #[test]
@@ -71,13 +59,12 @@ mod tests {
         let mut checksum = ChecksumV01::new();
 
         // TODO: Fix that, all the checksums should be 65..=90
-        assert_eq!(checksum.calculate(b"0"), [1, 2]);
-        assert_eq!(checksum.calculate(b"1"), [1, 2]);
-        assert_eq!(checksum.calculate(b"A"), [1, 2]);
-        assert_eq!(checksum.calculate(b"AA"), [1, 2]);
-        assert_eq!(checksum.calculate(b"AB09"), [1, 2]);
-        assert_eq!(checksum.calculate(b"ZZZZZZ"), [1, 2]);
-        assert_eq!(checksum.calculate(b"010012345TWBABAEFGH"), [1, 2]);
+        assert_eq!(checksum.calculate(b"0"), [87, 77]);
+        assert_eq!(checksum.calculate(b"1"), [80, 76]);
+        assert_eq!(checksum.calculate(b"AA"), [89, 66]);
+        assert_eq!(checksum.calculate(b"AB09"), [78, 65]);
+        assert_eq!(checksum.calculate(b"ZZZZZZ"), [78, 69]);
+        assert_eq!(checksum.calculate(b"010012345TWBABAEFGH"), [88, 73]);
     }
 
     #[test]
@@ -101,10 +88,17 @@ mod tests {
     fn it_prevents_typical_swaps() {
         let mut checksum = ChecksumV01::new();
 
-        assert!(checksum.calculate(b"AB") != checksum.calculate(b"BA"));
-        // assert!(
-        //     checksum.calculate("010012345TWBABAEFGH")
-        //         != checksum.calculate("100012345TWBABAEFGH")
-        // );
+        let set1 = [[b"01", b"10"], [b"AB", b"BA"], [b"0Z", b"Z0"]];
+        for sample in &set1 {
+            assert!(checksum.calculate(sample[0]) != checksum.calculate(sample[1]));
+        }
+
+        let set2 = [
+            [b"_01_0012345TWBABAEFGH", b"_10_0012345TWBABAEFGH"],
+            [b"010012345_TW_BABAEFGH", b"010012345_WT_BABAEFGH"],
+        ];
+        for sample in &set2 {
+            assert!(checksum.calculate(sample[0]) != checksum.calculate(sample[1]));
+        }
     }
 }

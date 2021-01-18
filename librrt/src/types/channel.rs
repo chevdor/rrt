@@ -19,7 +19,7 @@ pub fn channel_to_string(c: &Channel) -> Option<String> {
     }
 }
 
-// TODO: Unknown vs using Option<Channel> ?
+// TODO: what is better: Unknown vs using Option<Channel> ?
 impl From<&str> for Channel {
     fn from(ch: &str) -> Self {
         return match &ch {

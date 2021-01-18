@@ -4,12 +4,9 @@
 //! - does the job
 
 use crate::detector::Detector;
-use crate::types::channel::*;
-use crate::types::network::*;
-use crate::types::version::*;
-use crate::versions::rrtoken::Token;
-use crate::versions::rrtoken::Tokenize;
-use crate::versions::token_v00::TokenV00;
+use crate::types::*;
+use crate::versions::*;
+use std::str::FromStr;
 
 pub struct Builder {
     // tokens: Vec<Token>,
@@ -26,21 +23,31 @@ impl Builder {
     pub fn build(s: &str) -> Option<impl Tokenize + std::fmt::Debug> {
         let analysis = Detector::analyze(s);
         let some_tuple = analysis.expect("Fix me, got no version 1");
-        let size = some_tuple.1;
-        let version = match some_tuple.0 {
+
+        let app = match some_tuple.0 {
             None => panic!("Fix me, got no version 2"),
             Some(v) => v,
         };
 
-        match version {
-            Version::V00 => Some(TokenV00::new(
-                version,
-                Network::Kusama,
-                1,
-                11041,
-                Channel::Twitter,
+        let version = match some_tuple.1 {
+            None => panic!("Fix me, got no version 2"),
+            Some(v) => v,
+        };
+
+        let size = some_tuple.2;
+        match (app, version, size) {
+            (_x, Version::V00, 24) => Some(Token::from(
+                TokenV00::from_str(s).expect("Invalid token v01"),
             )),
-            _ => todo!(),
+            (_x, Version::V01, 25) => Some(Token::from(
+                TokenV01::from_str(s).expect("Invalid token v01"),
+            )),
+            (x, v, l) => panic!(format!(
+                "Wooooo we don't support that: App={app} v{version} with length= {length}",
+                length = l,
+                version = v,
+                app = x,
+            )),
         }
     }
 
@@ -48,14 +55,29 @@ impl Builder {
     pub fn build_with_variant(s: &str) -> Option<Token> {
         let analysis = Detector::analyze(s);
         let some_tuple = analysis.expect("Fix me, got no version 1");
-        let size = some_tuple.1;
-        let version = match some_tuple.0 {
+
+        let app = match some_tuple.0 {
             None => panic!("Fix me, got no version 2"),
             Some(v) => v,
         };
 
-        match version {
-            Version::V00 => Some(Token::V00(TokenV00::new(
+        let version = match some_tuple.1 {
+            None => panic!("Fix me, got no version 2"),
+            Some(v) => v,
+        };
+
+        let size = some_tuple.2;
+        match (app, version, size) {
+            (x, Version::V00, 24) => Some(Token::V00(TokenV00::new(
+                x,
+                version,
+                Network::Kusama,
+                1,
+                11041,
+                Channel::Twitter,
+            ))),
+            (x, Version::V01, 25) => Some(Token::V01(TokenV01::new(
+                x,
                 version,
                 Network::Kusama,
                 1,
@@ -80,16 +102,17 @@ impl Builder {
 mod tests_builder {
     use super::*;
     use crate::detector::Detector;
-    use crate::error::error::Error;
+    use crate::error::Error;
 
     #[test]
     fn it_returns_a_tokenize() {
-        let s = "00000012345TWRAJQFIZWF";
+        let s = "0000000012345TWRAJQFIZWF";
         let analysis = Detector::analyze(s);
-        assert_eq!(Ok((Some(Version::V00), 22)), analysis);
+        assert_eq!(Ok((Some(0), Some(Version::V00), 24)), analysis);
 
         let tkn = Builder::build(s).expect("Got None where we expected Some Token_V00");
         println!("RESULT: {:?}", tkn);
+        println!("checksum: {:?}", tkn.checksum());
 
         // TODO: I need to get the variant back... but do I ?
         println!(
@@ -100,9 +123,9 @@ mod tests_builder {
 
     #[test]
     fn it_returns_a_variant() {
-        let s = "00000012345TWRAJQFIZWF";
+        let s = "0000000012345TWRAJQFIZWF";
         let analysis = Detector::analyze(s);
-        assert_eq!(Ok((Some(Version::V00), 22)), analysis);
+        assert_eq!(Ok((Some(0), Some(Version::V00), 24)), analysis);
 
         let tkn_variant =
             Builder::build_with_variant(s).expect("Got None where we expected Some Token_V00");
@@ -117,14 +140,14 @@ mod tests_builder {
     #[test]
     #[ignore]
     fn it_runs_2() {
-        let s = "01000012345TWRAJQFIZWFX";
+        let s = "0301000012345TWRAJQFIZWFX";
         let analysis = Detector::analyze(s);
-        assert_eq!(Ok((Some(Version::V01), 23)), analysis);
+        assert_eq!(Ok((Some(3), Some(Version::V01), 25)), analysis);
     }
 
     #[test]
     fn it_runs_3() {
-        let s = "02000012345TWRAJQFIZWFX";
+        let s = "FF02000012345TWRAJQFIZWFX";
         let analysis = Detector::analyze(s);
         assert_eq!(
             Err(Error::Version(VersionError::UnsupportedVersion(2))),

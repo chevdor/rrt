@@ -1,5 +1,5 @@
-use crate::error::checksum_error::ChecksumErrorT;
-use crate::types::version::VersionError;
+use crate::error::checksum_error::ChecksumError;
+use crate::types::VersionError;
 
 /// The Errors that RRT may throw.
 #[derive(Debug, PartialEq)]
@@ -22,7 +22,7 @@ pub enum Error {
     InvalidEncoding(String),
 
     /// The checksum is wrong.
-    ChecksumError(ChecksumErrorT),
+    ChecksumError(ChecksumError),
 }
 
 impl From<VersionError> for Error {

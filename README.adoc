@@ -4,6 +4,12 @@ This is a Rust implementation of my RRT token. Same than what I did in Typescrip
 
 WARNING: Currently the wording is not ideal as I use `token` to refer to both an **RRT Token** but also the **token** inside of it. The inner token is also referred as **secret token**. This should be rework.
 
+== Architecture, stand & plans
+
+I went through a few iterations and actually, for now, this is still a test.
+
+Ultimately, I probably should make a `librt` crate that is totally generic and a lib_registrar_token that is specific to the registrar. Ideally, the CLI should handle all sorts.
+
 === Versions
 
 The first two digits are the registrar index. The 2 next are for a version number.
@@ -17,7 +23,7 @@ The initial version also did not inlucde the networkId, I will add it as it may 
 
 Here is the history / description of the versions:
 
-==== V00: 20 chars
+==== V00: 24 chars
 
 This is the first version. The checksum is a rather naive (=simple) custom implementation. This checksum implementation is NOT robust against position swapping. So ABCDEF and BACDEF will have the same checksum :(
 
@@ -27,12 +33,16 @@ The checksum is a single u8
 
 WANRNING: This version should not be used in production but can be useful for testing.
 
-==== V01: 21 chars
+==== V01: 25 chars
 
 This version uses a Fletcher 16 checksum so the checksum is coded as `[u8; 2]`.
 
 In this version, the `Data` field is a variant that supports a few other options such as `Ready`, used by the user to signal events onchain for which there is no other extrinsic/event.
 
-==== V02
+==== V02: ?? chars
 
-This is a planned test using a Blake hash on 2 bytes.
+Ideas:
+
+- To shorten the length, instead of using hex (base 16) we could use z-base-32 or crockford encoding (base 32). But I guess we dont gain much
+- We could add the app_id to the final sum before checksum
+- This is a planned test using a Blake hash on 2 bytes. The first to check is whether it helps in any way.
