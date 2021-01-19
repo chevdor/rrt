@@ -18,7 +18,7 @@ impl ChecksumV00 {
 impl Checksum<u8> for ChecksumV00 {
     /// We want a checksum being a value 65..90
     /// So we take the modulo 26 and shift to the first char.
-    fn calculate(&mut self, s: &[u8]) -> u8 {
+    fn calculate(&self, s: &[u8]) -> u8 {
         let sum: u8 = s.iter().fold(0, |s, &x| s.wrapping_add(x));
         sum % 26 + 65
     }
@@ -33,8 +33,8 @@ impl FromStr for ChecksumV00 {
     type Err = ChecksumError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut res = ChecksumV00::new();
-        let c = res.calculate(s.as_bytes());
+        let checksum = ChecksumV00::new();
+        let c = checksum.calculate(s.as_bytes());
         Ok(Self { checksum: Some(c) })
     }
 }
@@ -45,19 +45,19 @@ mod tests {
 
     #[test]
     fn it_calculates() {
-        let mut checksum = ChecksumV00::new();
+        let checksum = ChecksumV00::new();
         assert_eq!(checksum.calculate("A".as_bytes()), 78);
     }
 
     #[test]
     fn it_calculate() {
-        let mut checksum = ChecksumV00::new();
+        let checksum = ChecksumV00::new();
         assert_eq!(checksum.calculate(b"A"), 78);
     }
 
     #[test]
     fn it_calculates_from_str() {
-        let mut checksum = ChecksumV00::new();
+        let checksum = ChecksumV00::new();
 
         assert_eq!(checksum.calculate(b"0"), 87);
         assert_eq!(checksum.calculate(b"1"), 88);
@@ -72,7 +72,7 @@ mod tests {
 
     #[test]
     fn it_has_a_checksum_always_between_65_and_90() {
-        let mut checksum = ChecksumV00::new();
+        let checksum = ChecksumV00::new();
         let mut s = String::new();
 
         for _ in 1..26 * 100 {
@@ -86,7 +86,7 @@ mod tests {
     #[test]
     #[ignore = "Does not work for this checksum"]
     fn it_prevents_typical_swaps() {
-        let mut checksum = ChecksumV00::new();
+        let checksum = ChecksumV00::new();
 
         assert!(checksum.calculate("AB".as_bytes()) != checksum.calculate("BA".as_bytes()));
     }

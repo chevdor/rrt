@@ -49,7 +49,6 @@ impl FromStr for Version {
     }
 }
 
-// TODO: make is generic for all types implementing Trait Debug
 impl Into<String> for Version {
     fn into(self) -> String {
         format!("{:02?}", self)

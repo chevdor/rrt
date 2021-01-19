@@ -1,17 +1,15 @@
 use crate::checksum::*;
 use crate::error::Error;
 use crate::types::*;
-use crate::utils::utils::dec2hex;
+use crate::utils::*;
 use crate::versions::rrtoken::Tokenize;
 use crate::*;
-use rand::Rng;
 use std::convert::From;
-use std::fmt::Debug;
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
 use std::str;
 use std::str::FromStr;
 
-type ChecksumOutput = [u8; 2];
+const TOKEN_V01_SIZE: usize = 25;
 
 /// An RRT token looks like (dashes are for readability):
 /// 01-00-02B21-TW-RAJQFIZW-O
@@ -30,6 +28,7 @@ type ChecksumOutput = [u8; 2];
 ///
 #[derive(Debug)]
 pub struct TokenV01 {
+    /// A numerical index representing the App
     app: u8,
 
     /// RRT Token version 0..255
@@ -50,7 +49,7 @@ pub struct TokenV01 {
     /// The random token
     secret: String,
 
-    checksum: Option<ChecksumOutput>,
+    checksum: ChecksumOutput,
 }
 
 impl Display for TokenV01 {
@@ -59,23 +58,17 @@ impl Display for TokenV01 {
     }
 }
 
-// TODO: move to default impl in the trait
-/// Generate a random string of 'length' chars
-/// The string is made of ascii chars from 65 to 90 (CAPS).
-pub fn get_token(length: usize) -> String {
-    let mut rng = rand::thread_rng();
-    let chars: Vec<u8> = (0..length).map(|_| rng.gen_range(65..=90)).collect();
-    String::from(str::from_utf8(&chars).unwrap())
-}
-
 impl FromStr for TokenV01 {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let s = TokenV00::clean_token_string(s);
+        let s = clean_token_string(s);
+        if s.len() < TOKEN_V01_SIZE {
+            return Err(Error::LengthError(TOKEN_V01_SIZE, s.len()));
+        }
 
-        // 01_02_01_00_12345_TW_BABAEFGH_K (V00)
-        // 0  2  4  6  8     13 15
+        // 01_02_01_00_12345_TW_BABAEFGH_KX (V01)
+        // 0  2  4  6  8     13 15       24
         // TODO: handle errors better
         let app = u8::from_str_radix(&s[0..2], 16).unwrap();
         let version = Version::from_str(&s[2..4])?;
@@ -83,43 +76,40 @@ impl FromStr for TokenV01 {
         let index = u8::from_str_radix(&s[6..8], 16).unwrap();
         let case_id = u64::from_str_radix(&s[8..13], 16).unwrap();
         let channel = Channel::from(&s[13..15]);
-        let token = String::from(&s[15..23]);
-        let checksum = [
-            s.chars().nth_back(1).unwrap() as u8,
-            s.chars().nth_back(0).unwrap() as u8,
-        ]; // TODO: Meh
-        Ok(TokenV01::new_with_token(
-            app,
-            version,
-            network,
-            index,
-            case_id,
-            channel,
-            &token,
-            Some(checksum),
-        ))
+        let secret = String::from(&s[15..23]);
+        let checksum_str = Self::extract_checksum(&s)?;
+
+        let algo = ChecksumV01::new();
+        let raw = TokenV01::format_raw(app, version, network, index, case_id, channel, &secret);
+        let checksum = ChecksumOutput::Dual(algo.calculate(raw.as_bytes()));
+
+        match checksum {
+            ChecksumOutput::Dual(d) if d == checksum_str => Ok(Self {
+                app,
+                version,
+                network,
+                index,
+                case_id,
+                channel,
+                secret,
+                checksum,
+            }),
+            _ => Err(Error::ChecksumError(ChecksumError::new(
+                s,
+                checksum,
+                ChecksumOutput::Dual(checksum_str),
+            ))),
+        }
     }
 }
 
 impl Tokenize for TokenV01 {
     fn size_of(&self) -> usize {
-        let token = TokenV01::new_with_token(
-            17,
-            Version::V00,
-            Network::Kusama,
-            1,
-            1234,
-            Channel::Email,
-            "ABCDEFGH",
-            Some([1, 2]),
-        );
-        println!("{}", token.format_string("_"));
-        token.format_string("").len()
+        TOKEN_V01_SIZE
     }
 
     gen_getter!(app, &u8);
     gen_getter!(version, &Version);
-
     gen_getter!(network, &Network);
     gen_getter!(channel, &Channel);
     gen_getter!(index, &u8);
@@ -127,9 +117,12 @@ impl Tokenize for TokenV01 {
     gen_getter!(secret, &String);
 
     fn checksum(&self) -> String {
-        let chk = match self.checksum {
-            None => String::from("?"),
-            Some(x) => format!("{}", String::from_utf8_lossy(&x)),
+        let chk = match &self.checksum {
+            ChecksumOutput::Single(s) => panic!(format!(
+                "Did not expect a 'Single' Checksum in V01, got {:?}",
+                s
+            )),
+            ChecksumOutput::Dual(d) => format!("{}", String::from_utf8_lossy(d)),
         };
 
         format!("{}", chk)
@@ -146,13 +139,8 @@ impl TokenV01 {
         case_id: u64,
         channel: Channel,
     ) -> Self {
-        let token = get_token(8);
-        debug_assert!(
-            token.len() == 8,
-            "The generated token does not have the right length"
-        );
-
-        Self::new_with_token(
+        let token = &gen_random_string(8);
+        Self::new_with_secret(
             app,
             version,
             network,
@@ -160,7 +148,6 @@ impl TokenV01 {
             case_id,
             channel,
             &String::from(token),
-            None,
         )
     }
 
@@ -185,8 +172,8 @@ impl TokenV01 {
         )
     }
 
-    /// Unlike ::new(...), here you must pass the token
-    pub fn new_with_token(
+    /// Unlike ::new(...), here you must pass the secret
+    pub fn new_with_secret(
         app: u8,
         version: Version,
         network: Network,
@@ -194,22 +181,15 @@ impl TokenV01 {
         case_id: u64,
         channel: Channel,
         secret: &str,
-        checksum: Option<ChecksumOutput>,
     ) -> Self {
         assert!(
             secret.len() == 8,
             "The passed secret does not have the right length"
         );
 
-        let chk = match checksum {
-            Some(c) => Some(c),
-            None => {
-                let mut algo = ChecksumV01::new();
-                let raw =
-                    TokenV01::format_raw(app, version, network, index, case_id, channel, secret);
-                Some(algo.calculate(raw.as_bytes()))
-            }
-        };
+        let algo = ChecksumV01::new();
+        let raw = TokenV01::format_raw(app, version, network, index, case_id, channel, secret);
+        let checksum = ChecksumOutput::Dual(algo.calculate(raw.as_bytes()));
 
         Self {
             app,
@@ -219,18 +199,8 @@ impl TokenV01 {
             case_id,
             channel,
             secret: String::from(secret),
-            checksum: chk,
+            checksum,
         }
-    }
-
-    // TODO: remove this, it was a test
-    pub fn special(&self) -> String {
-        String::from("I am a special string only V00 can return")
-    }
-
-    pub fn is_valid(&self) -> bool {
-        false
-        // TODO: dont forget that
     }
 
     /// Allows formatting the token with separator. This is mainly used
@@ -258,87 +228,47 @@ impl TokenV01 {
         ) // FIXME
     }
 
-    // TODO: move to the root trait with def. impl
-    /// This function removes any char that is not part of [A-Z0-9]
-    pub fn clean_token_string(s: &str) -> String {
-        s.chars()
-            .filter(|c| (*c >= 'A' && *c <= 'Z') || (*c >= '0' && *c <= '9'))
-            .collect()
+    fn extract_checksum(s: &str) -> Result<[u8; 2], Error> {
+        // TODO: can do better...
+        if s.len() < TOKEN_V01_SIZE {
+            return Err(Error::LengthError(25, s.len()));
+        }
+        let a = s.as_bytes()[TOKEN_V01_SIZE - 2];
+        let b = s.as_bytes()[TOKEN_V01_SIZE - 1];
+        Ok([a, b])
     }
 
     /// Returns whether a given token is valid or not.
     /// This function does that by re-caclulating the checksum and
     /// comparing with the one that was
-    // pub fn check<T: PartialEq + Debug>(s: &str, algo: &mut dyn Checksum<T>) -> Result<(), String> {
-    //     const SIZE: usize = 24;
-
-    //     // TODO: workaround... https://github.com/rust-lang/rust/issues/37854
-    //     const SIZEM: usize = SIZE - 1;
-
-    //     let cleaned: String = match s.len() {
-    //         0..=SIZEM => format!("Invalid length. Got {}, expected {}", s.len(), SIZE),
-    //         SIZE => String::from(s),
-    //         _ => TokenV01::clean_token_string(&s),
-    //     };
-
-    //     // If the string it too short, we cannot do much.. this is just wrong
-    //     let raw = &cleaned[..SIZE - 1];
-    //     let expected = algo.calculate(raw.as_bytes());
-    //     let found: &[u8; 2] = &cleaned.as_bytes()[SIZE - 2..];
-    //     // println!("***** raw: {}", raw);
-    //     // println!("***** exp: {}", expected);
-    //     // println!("***** fnd: {}", found);
-    //     match found == expected {
-    //         true => Ok(()),
-    //         false => Err(format!(
-    //             "Wrong checksum in {}. Got {:?}={}, expected {:?}={}",
-    //             s,
-    //             found,
-    //             &s[65,65],// String::from_utf8_lossy(found), // TODO: bring back
-    //             expected,
-    //             &s[65,65], //String::from_utf8_lossy(expected),
-    //         )),
-    //     }
-    // }
-
-    fn extract_checksum(s: &str) -> Option<[u8; 2]> {
-        // &cleaned.as_bytes()[SIZE - 2..];
-        Some([1, 2])
-    }
-
-    pub fn check(s: &str, algo: &mut dyn Checksum<[u8; 2]>) -> Result<(), String> {
-        const SIZE: usize = 24;
+    pub fn check(s: &str, algo: &dyn Checksum<[u8; 2]>) -> Result<(), Error> {
+        const SIZE: usize = TOKEN_V01_SIZE;
 
         // TODO: workaround... https://github.com/rust-lang/rust/issues/37854
-        const SIZEM: usize = SIZE - 1;
+        const SIZEM: usize = SIZE - 2;
 
         let cleaned: String = match s.len() {
             0..=SIZEM => format!("Invalid length. Got {}, expected {}", s.len(), SIZE),
             SIZE => String::from(s),
-            _ => TokenV01::clean_token_string(&s),
+            _ => clean_token_string(&s),
         };
 
         // If the string it too short, we cannot do much.. this is just wrong
-        let raw = &cleaned[..SIZE - 1];
-        let expected = &algo.calculate(raw.as_bytes());
-        if let Some(found) = TokenV01::extract_checksum(s) {
-            match &found == expected {
-                true => Ok(()),
-                false => Err(format!(
-                    "Wrong checksum in {}. Got {:?}={}, expected {:?}={}",
-                    s,
-                    found,
-                    String::from_utf8_lossy(&found),
-                    expected,
-                    String::from_utf8_lossy(expected),
-                )),
-            }
-        } else {
-            Err(String::from("Invalid Checksum"))
-        }
+        let raw = &cleaned[..SIZE - 2];
+        let expected = algo.calculate(raw.as_bytes());
+        let found = TokenV01::extract_checksum(s)?;
+
         // println!("***** raw: {}", raw);
-        // println!("***** exp: {}", expected);
-        // println!("***** fnd: {}", found);
+        // println!("***** exp: {:?}", expected);
+        // println!("***** fnd: {:?}", found);
+        match found == expected {
+            true => Ok(()),
+            false => Err(Error::ChecksumError(ChecksumError::new(
+                s.into(),
+                ChecksumOutput::Dual(expected),
+                ChecksumOutput::Dual(found),
+            ))),
+        }
     }
 }
 
@@ -351,43 +281,30 @@ mod tests_rrt {
     const APP: u8 = 0;
 
     #[test]
-    fn it_generate_a_8_chars_token() {
-        let token = get_token(8);
-        assert_eq!(token.len(), 8);
-    }
-
-    #[test]
     fn it_makes_a_rrt() {
         let token = TokenV01::new(APP, VERSION, CHAIN, 1, 11041, Channel::Twitter);
-        assert_eq!(25, token.to_string().len());
+        assert_eq!(TOKEN_V01_SIZE, token.to_string().len());
     }
 
     #[test]
     fn it_returns_the_correct_size() {
         let token = TokenV01::new(APP, VERSION, CHAIN, 1, 11041, Channel::Twitter);
-        assert_eq!(25, token.size_of());
+        assert_eq!(TOKEN_V01_SIZE, token.size_of());
     }
 
     #[test]
     fn it_makes_a_rrt_with_token() {
-        let token = TokenV01::new_with_token(
-            APP,
-            VERSION,
-            CHAIN,
-            1,
-            11041,
-            Channel::Twitter,
-            "ABNCDEFG",
-            None,
-        );
+        let token =
+            TokenV01::new_with_secret(APP, VERSION, CHAIN, 1, 11041, Channel::Twitter, "ABNCDEFG");
         println!("{}", token);
-        assert_eq!(token.to_string().len(), 25);
+        assert_eq!(TOKEN_V01_SIZE, token.to_string().len());
     }
 
     #[test]
     fn it_makes_a_token_from_string() {
-        let token = TokenV01::from_str("1100000012345TWBABAEFQKQ").unwrap();
-        assert_eq!(token.to_string().len(), 25);
+        let token = TokenV01::from_str("1100010012345TWBABAEFQKJA");
+        assert!(token.is_ok());
+        assert_eq!(TOKEN_V01_SIZE, token.unwrap().to_string().len());
     }
 
     #[test]
@@ -398,8 +315,9 @@ mod tests_rrt {
 
     #[test]
     fn it_makes_a_token_from_string_with_seps() {
-        let token = TokenV01::from_str("11-01-32-00_12345 TW/BABAEFGH:H").unwrap();
-        assert_eq!(token.to_string().len(), 25);
+        let token = TokenV01::from_str("11-01-32-00_12345 TW/BABAEFGH:GA");
+        assert!(token.is_ok());
+        assert_eq!(TOKEN_V01_SIZE, token.unwrap().to_string().len());
     }
 
     #[test]
@@ -411,53 +329,46 @@ mod tests_rrt {
         ];
 
         for s in &samples {
-            assert_eq!(TokenV01::clean_token_string(s.0), s.1)
+            assert_eq!(clean_token_string(s.0), s.1)
         }
     }
 
     #[test]
     fn it_generates_a_token() {
         let token = TokenV01::new(APP, VERSION, CHAIN, 1, 11041, Channel::Twitter);
-        assert_eq!(token.to_string().len(), 25);
+        assert_eq!(TOKEN_V01_SIZE, token.to_string().len());
     }
 
     #[test]
     fn it_generates_a_token_with() {
-        let token = TokenV01::new_with_token(
-            APP,
-            VERSION,
-            CHAIN,
-            1,
-            11041,
-            Channel::Twitter,
-            "12345678",
-            None,
-        );
-        assert_eq!(token.to_string().len(), 25);
+        let token =
+            TokenV01::new_with_secret(APP, VERSION, CHAIN, 1, 11041, Channel::Twitter, "12345678");
+        assert_eq!(TOKEN_V01_SIZE, token.to_string().len());
     }
 
     #[test]
     fn it_passes_checksum_test() {
-        let mut algo: ChecksumV01 = ChecksumV01::new();
-        let check = TokenV01::check("1101000012345TWRAJQFIZWX", &mut algo);
+        let algo: ChecksumV01 = ChecksumV01::new();
+        let check = TokenV01::check("1101000012345TWRAJQFIZWGG", &algo);
         assert!(check.is_ok());
     }
 
     #[test]
     fn it_fails_with_bad_checksum() {
-        let mut algo: ChecksumV01 = ChecksumV01::new();
+        let algo: ChecksumV01 = ChecksumV01::new();
 
-        assert!(TokenV01::check("JUNK", &mut algo).is_err());
-        assert!(TokenV01::check("010002B21TWRAJQFIZWT", &mut algo).is_err());
+        assert!(TokenV01::check("JUNK", &algo).is_err());
+        assert!(TokenV01::check("010002B21TWRAJQFIZWT", &algo).is_err());
     }
 
     #[test]
     fn it_parses_a_valid_token() {
-        let mut algo: ChecksumV01 = ChecksumV01::new();
-        let token = "1101000012345TWRAJQFIZWZ";
-        let res = TokenV01::check(token, &mut algo);
+        let algo: ChecksumV01 = ChecksumV01::new();
+        let token = "1101000012346TWRAJQFIZWRP";
+        let res = TokenV01::check(token, &algo);
+        println!("res= {:?}", res);
         assert!(res.is_ok());
-        assert_eq!(TokenV01::check(token, &mut algo), Ok(()));
+        assert_eq!(TokenV01::check(token, &algo), Ok(()));
     }
 
     #[test]

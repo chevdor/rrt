@@ -12,9 +12,10 @@ pub enum Error {
 
     UnknownChannel(u8),
 
+    // TODO: use a srtuct to avoid having to document that
     /// The input string does not match the format (often the length) expected
     /// for the version. For instance, a V00 that is not 20 chars, or a V01 that is not 21 chars.
-    /// The tuple is (expected, found) // TODO: use a srtuct to avoid having to document that
+    /// The tuple is (expected, found) 
     LengthError(usize, usize),
 
     /// Some of the fields are encoded in hex. So those fields should be valid hexs strings.

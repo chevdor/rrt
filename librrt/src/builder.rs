@@ -37,7 +37,7 @@ impl Builder {
         let size = some_tuple.2;
         match (app, version, size) {
             (_x, Version::V00, 24) => Some(Token::from(
-                TokenV00::from_str(s).expect("Invalid token v01"),
+                TokenV00::from_str(s).expect("Invalid token v00"),
             )),
             (_x, Version::V01, 25) => Some(Token::from(
                 TokenV01::from_str(s).expect("Invalid token v01"),
@@ -106,15 +106,10 @@ mod tests_builder {
 
     #[test]
     fn it_returns_a_tokenize() {
-        let s = "0000000012345TWRAJQFIZWF";
+        let s = "0000000012345TWRAJQFIZWW";
         let analysis = Detector::analyze(s);
         assert_eq!(Ok((Some(0), Some(Version::V00), 24)), analysis);
-
         let tkn = Builder::build(s).expect("Got None where we expected Some Token_V00");
-        println!("RESULT: {:?}", tkn);
-        println!("checksum: {:?}", tkn.checksum());
-
-        // TODO: I need to get the variant back... but do I ?
         println!(
             "We lost the variant but we know this is version {:?}",
             tkn.version()
@@ -123,7 +118,7 @@ mod tests_builder {
 
     #[test]
     fn it_returns_a_variant() {
-        let s = "0000000012345TWRAJQFIZWF";
+        let s = "0000000012345TWRAJQFIZWW";
         let analysis = Detector::analyze(s);
         assert_eq!(Ok((Some(0), Some(Version::V00), 24)), analysis);
 
