@@ -6,6 +6,7 @@
 use crate::detector::Detector;
 use crate::types::*;
 use crate::versions::*;
+use crate::Error;
 use std::str::FromStr;
 
 pub struct Builder {
@@ -52,7 +53,7 @@ impl Builder {
     }
 
     /// This function return a given token
-    pub fn build_with_variant(s: &str) -> Option<Token> {
+    pub fn build_with_variant(s: &str) -> Result<Token, Error> {
         let analysis = Detector::analyze(s);
         let some_tuple = analysis.expect("Fix me, got no version 1");
 
@@ -67,24 +68,34 @@ impl Builder {
         };
 
         let size = some_tuple.2;
+
+        // TODO: FIX FAKE BELOW
         match (app, version, size) {
-            (x, Version::V00, 24) => Some(Token::V00(TokenV00::new(
-                x,
-                version,
-                Network::Kusama,
-                1,
-                11041,
-                Channel::Twitter,
-            ))),
-            (x, Version::V01, 25) => Some(Token::V01(TokenV01::new(
-                x,
-                version,
-                Network::Kusama,
-                1,
-                11041,
-                Channel::Twitter,
-            ))),
-            _ => todo!(),
+            // (x, Version::V00, 24) => Some(Token::V00(TokenV00::new(
+            //     x,
+            //     version,
+            //     Network::Kusama,
+            //     1,
+            //     11041,
+            //     Channel::Twitter,
+            // ))),
+            (x, Version::V00, 24) => Ok(Token::V00(TokenV00::from_str(s)?)),
+            // (x, Version::V01, 25) => Some(Token::V01(TokenV01::new(
+            //     x,
+            //     version,
+            //     Network::Kusama,        //    <==== WORKING BUT FAKE
+            //     1,
+            //     11041,
+            //     Channel::Twitter,
+            // ))),
+            (x, Version::V01, 25) => Ok(Token::V01(TokenV01::from_str(s)?)),
+            _ => {
+                println!(
+                    "This app/version set is not supported: app:{:02?} version:{:?} with length: {:?}",
+                    app, version, size
+                );
+                Err(Error::InvalidEncoding(String::from(s)))
+            }
         }
     }
 

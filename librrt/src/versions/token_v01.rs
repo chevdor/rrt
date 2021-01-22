@@ -167,7 +167,7 @@ impl TokenV01 {
             RG = dec2hex(index, 2),
             NET = dec2hex(network as u8, 2),
             CASE = dec2hex(case_id, 5),
-            CH = channel_to_string(&channel).unwrap(), // FIXME, we should Impl. Display instead
+            CH = &channel.to_string(),
             _SECRET_ = secret,
         )
     }
@@ -221,7 +221,7 @@ impl TokenV01 {
             RG = dec2hex(self.index, 2),
             NET = dec2hex(self.network as u8, 2),
             CASE = dec2hex(self.case_id, 5),
-            CH = channel_to_string(&self.channel).unwrap(), // FIXME, we should Impl. Display instead
+            CH = &self.channel.to_string(),
             TOKEN_ID = self.secret,
             S = sep,
             C = self.checksum(),

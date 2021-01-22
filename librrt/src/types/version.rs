@@ -1,5 +1,6 @@
 //! This file contains the list of the supported versions
 use std::convert::Into;
+use std::convert::TryFrom;
 use std::fmt::Display;
 use std::fmt::LowerHex;
 use std::str::FromStr;
@@ -45,6 +46,17 @@ impl FromStr for Version {
                 Err(VersionError::UnsupportedVersion(v.parse().unwrap()))
             }
             _ => Err(VersionError::ParseError(String::from(vstr))),
+        };
+    }
+}
+
+impl TryFrom<u8> for Version {
+    type Error = String;
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        return match value {
+            0 => Ok(Version::V00),
+            1 => Ok(Version::V01),
+            _ => Err(format!("Version unknown: {}", value)),
         };
     }
 }

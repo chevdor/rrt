@@ -10,14 +10,14 @@ pub enum Channel {
 }
 
 // TODO: Use a more Rusty way...
-pub fn channel_to_string(c: &Channel) -> Option<String> {
-    match c {
-        Channel::Email => Some(String::from("EM")),
-        Channel::Twitter => Some(String::from("TW")),
-        Channel::Matrix => Some(String::from("MX")),
-        _ => None,
-    }
-}
+// pub fn channel_to_string(c: &Channel) -> Option<String> {
+//     match c {
+//         Channel::Email => Some(String::from("EM")),
+//         Channel::Twitter => Some(String::from("TW")),
+//         Channel::Matrix => Some(String::from("MX")),
+//         _ => None,
+//     }
+// }
 
 // TODO: what is better: Unknown vs using Option<Channel> ?
 impl From<&str> for Channel {
@@ -31,9 +31,22 @@ impl From<&str> for Channel {
     }
 }
 
+impl From<String> for Channel {
+    fn from(ch: String) -> Self {
+        Channel::from(ch)
+    }
+}
+
 impl Display for Channel {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
-        write!(fmt, "{:?}", channel_to_string(self))
+        let str = match self {
+            Channel::Email => "EM",
+            Channel::Twitter => "TW",
+            Channel::Matrix => "MX",
+            _ => "n/a",
+        };
+
+        write!(fmt, "{}", String::from(str))
     }
 }
 
@@ -52,7 +65,7 @@ mod tests_rrt {
 
     #[test]
     fn it_converts_to_string() {
-        assert_eq!(channel_to_string(&Channel::Email), Some("EM".into()));
+        assert_eq!(&Channel::Email.to_string(), "EM");
     }
 
     #[test]

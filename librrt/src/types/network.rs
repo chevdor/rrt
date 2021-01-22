@@ -20,6 +20,17 @@ impl From<&str> for Network {
     }
 }
 
+impl From<u8> for Network {
+    fn from(ch: u8) -> Self {
+        return match &ch {
+            0 => Network::Polkadot,
+            2 => Network::Kusama,
+            42 => Network::Westend,
+            _ => Network::Unsupported,
+        };
+    }
+}
+
 impl Into<String> for Network {
     fn into(self) -> String {
         match self {

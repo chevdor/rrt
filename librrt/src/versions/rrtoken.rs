@@ -1,6 +1,7 @@
 use crate::types::Version;
 use crate::versions::*;
 use crate::Channel;
+use crate::Error;
 use crate::Network;
 use enum_dispatch::enum_dispatch;
 use std::fmt::Display;
