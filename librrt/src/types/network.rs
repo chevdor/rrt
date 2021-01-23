@@ -10,8 +10,8 @@ pub enum Network {
 
 // TODO: Unknown vs using Option<Channel> ?
 impl From<&str> for Network {
-    fn from(ch: &str) -> Self {
-        return match &ch {
+    fn from(n: &str) -> Self {
+        return match &n {
             &"00" => Network::Polkadot,
             &"02" => Network::Kusama,
             &"42" => Network::Westend,
@@ -21,8 +21,8 @@ impl From<&str> for Network {
 }
 
 impl From<u8> for Network {
-    fn from(ch: u8) -> Self {
-        return match &ch {
+    fn from(n: u8) -> Self {
+        return match &n {
             0 => Network::Polkadot,
             2 => Network::Kusama,
             42 => Network::Westend,

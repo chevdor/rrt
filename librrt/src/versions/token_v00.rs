@@ -13,15 +13,14 @@ const TOKEN_V00_SIZE: usize = 24;
 /// Content is coded in hex.
 ///
 /// You can display your RRT token using:
-///
-/// // TODO: make compilable again once the arch is stable
-/// use rrtlib::types::{Channel, Network, Version, RRT};
-/// use rttlib::versions:token_v00::TokenV00;
-/// let token = TokenV00::new(Network::Polkadot, 1, Version::V00, 12345, Channel::Email);
+/// ```
+/// use librrt::*;
+/// let token = TokenV00::new(0, Version::V00, Network::Polkadot, 1, 12345, Channel::Email);
 /// println!("{}", token);
 /// println!("{:?}", token);
 /// println!("{:#?}", token);
 /// println!("{}", token.format_string("-"));
+/// ```
 /// 01 00 02 01 02B21 TW 12345678 T
 #[derive(Debug)]
 pub struct TokenV00 {
@@ -119,11 +118,6 @@ impl TokenV00 {
         }
     }
 
-    // TODO: remove this, it was a test
-    pub fn special(&self) -> String {
-        String::from("I am a special string only V00 can return")
-    }
-
     fn format_raw(
         app: u8,
         version: Version,
@@ -142,31 +136,6 @@ impl TokenV00 {
             CASE = dec2hex(case_id, 5),
             CH = &channel.to_string(),
             _SECRET_ = secret,
-        )
-    }
-
-    /// Allows formatting the token with separator. This is mainly used
-    /// in the cli and for debugging.
-    ///
-    /// Example:
-    /// // TODO: make the following a compilied example again once archtecture is stable
-    /// use rrtlib::types::{Channel, Network, Version, RRT};
-    /// use rttlib::versions::token_v00::TokenV00;
-    /// let token = TokenV00::new(Network::Polkadot, 1, Version::V00, 11041, Channel::Twitter);
-    /// println!("{}", token.format_string("-"))
-    pub fn format_string(&self, sep: &str) -> String {
-        format!(
-            // 01 00 02 01 02B21 TW 12345678 75
-            "{APP}{S}{VV}{S}{NET}{S}{RG}{S}{CASE}{S}{CH}{S}{_SECRET_}{S}{C}",
-            APP = dec2hex(self.app as u8, 2),
-            VV = dec2hex(self.version as u8, 2),
-            RG = dec2hex(self.index, 2),
-            NET = dec2hex(self.network as u8, 2),
-            CASE = dec2hex(self.case_id, 5),
-            CH = &self.channel.to_string(),
-            _SECRET_ = self.secret,
-            S = sep,
-            C = self.checksum().to_string()
         )
     }
 

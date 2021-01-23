@@ -4,32 +4,73 @@ This is a Rust implementation of my RRT token. Same than what I did in Typescrip
 
 WARNING: Currently the wording is not ideal as I use `token` to refer to both an **RRT Token** but also the **token** inside of it. The inner token is also referred as **secret token**. This should be rework.
 
+== Usage
+
+=== Install
+    
+    $ cargo install --path rrt
+
+=== Usage
+
+----
+
+$ rt new --network 0 --id 1 --channel TW  | xargs rt check -t 
+Checking: 00_01_00_01_00001_TW_CPETUTCA_DI
+          │  │  │  │  │     │  │        └╴╴╴╴checksum  : DI
+          │  │  │  │  │     │  └╴╴╴╴╴╴╴╴╴╴╴╴╴secret    : CPETUTCA
+          │  │  │  │  │     └╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴channel   : Twitter
+          │  │  │  │  └╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴case Id   : 1 (hex: 00001)
+          │  │  │  └╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴reg_index : 0x01
+          │  │  └╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴network   : Polkadot
+          │  └╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴version   : 0x01
+          └╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴app       : 0x00
+
+$ rt new --network 42 --id 1234 --channel TW
+00012A01004D2TWNPFSHZZVVC
+
+$ rt check -t 00012A01004D2TWOFYHGJRCJF
+Checking: 00_01_2A_01_004D2_TW_OFYHGJRC_JF
+          │  │  │  │  │     │  │        └╴╴╴╴checksum  : JF
+          │  │  │  │  │     │  └╴╴╴╴╴╴╴╴╴╴╴╴╴secret    : OFYHGJRC
+          │  │  │  │  │     └╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴channel   : Twitter
+          │  │  │  │  └╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴case Id   : 1234 (hex: 004D2)
+          │  │  │  └╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴reg_index : 0x01
+          │  │  └╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴network   : Westend
+          │  └╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴version   : 0x01
+          └╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴app       : 0x00
+----
+
 == Architecture, stand & plans
 
-I went through a few iterations and actually, for now, this is still a test.
-
-Ultimately, I probably should make a `librt` crate that is totally generic and a lib_registrar_token that is specific to the registrar. Ideally, the CLI should handle all sorts.
+Ultimately, I probably should make a `librt` crate that is totally generic and a `lib_registrar_token` that is specific to the registrar.
 
 === Versions
 
-The first two digits are the registrar index. The 2 next are for a version number.
-That allows evolving how the token is encoded/decoded.
+All tokens start with:
 
-The versions are encoded as HEX fro 00 to FF. So we have 255 options.
+- App: 0..FF
+- Version: 0..FF
+- Network: 0..FF
+
+After that we have application specifics:
+
+- reg_index: 0..FF
+- caseId: 00000..FFFFF
+- channel: TW | EM | MX
+- secret: 00000000..ZZZZZZZZ
+- checksum: AA..ZZ
+
+Most of the fields are encoded as HEX from 00 to FF. So we have 255 options for those.
 
 In my first version, I encoded the checksum on a single digit but I never used that version. I will allocated 2 bytes for the checksum to allow more complex and robust (against position swapping for instance) checksums.
 
-The initial version also did not inlucde the networkId, I will add it as it may help when people run simultaneous verifications and paste the wrong token on the wrong chain.
-
-Here is the history / description of the versions:
-
 ==== V00: 24 chars
 
-This is the first version. The checksum is a rather naive (=simple) custom implementation. This checksum implementation is NOT robust against position swapping. So ABCDEF and BACDEF will have the same checksum :(
+This is the first version. The checksum is a rather naive custom implementation which has the benefit of being simpler. This checksum implementation is NOT robust against position swapping. So ABCDEF and BACDEF will have the same checksum :(
 
 The data field can only contain the secret token (8 chars).
 
-The checksum is a single u8
+The checksum is a single `u8`.
 
 WANRNING: This version should not be used in production but can be useful for testing.
 
@@ -37,12 +78,29 @@ WANRNING: This version should not be used in production but can be useful for te
 
 This version uses a Fletcher 16 checksum so the checksum is coded as `[u8; 2]`.
 
-In this version, the `Data` field is a variant that supports a few other options such as `Ready`, used by the user to signal events onchain for which there is no other extrinsic/event.
+We may need users to send custom data. That can be done in this version using an unknown channel such as `RDY` which will end up in a token such as `00_01_00_01_00001_XX_YSPOVQKB_VF` where the channel becomes `XX`.
+
+For now, the cli does NOT support passing a custom secret/data but you may use the `check` command as workaround to check and fix your checksum:
+
+    $ rt check -t 0001000100001XXXREADYXXNI
+    No valid token found:
+    ChecksumError(Wrong checksum for 0001000100001XXXREADYXXNI. Got Dual([78, 73])=NI, expected Dual([65, 74])=AJ)
+    $ rt check -t 0001000100001XXXREADYXXAJ
+    Checking: 00_01_00_01_00001_XX_XREADYXX_AJ
+              │  │  │  │  │     │  │        └╴╴╴╴checksum  : AJ
+              │  │  │  │  │     │  └╴╴╴╴╴╴╴╴╴╴╴╴╴secret    : XREADYXX
+              │  │  │  │  │     └╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴channel   : n/a
+              │  │  │  │  └╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴case Id   : 1 (hex: 00001)
+              │  │  │  └╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴reg_index : 0x01
+              │  │  └╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴network   : Polkadot
+              │  └╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴version   : 0x01
+              └╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴app       : 0x00
 
 ==== V02: ?? chars
 
 Ideas:
 
 - To shorten the length, instead of using hex (base 16) we could use z-base-32 or crockford encoding (base 32). But I guess we dont gain much
-- We could add the app_id to the final sum before checksum
+- We could add the app_id to the final sum before checksum => benefit ?
 - This is a planned test using a Blake hash on 2 bytes. The first to check is whether it helps in any way.
+- instead of a secret field, we could have a command coded on 2 bytes and some data on 6 BYTES. That would allow passing more information through remarks.

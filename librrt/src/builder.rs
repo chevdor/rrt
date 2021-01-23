@@ -19,8 +19,8 @@ impl Builder {
         Self {}
     }
 
-    //TODO return a Result instead
-    /// This function return 'a' token implementing Tokenize but we lost which one
+    /// This function return 'a' token implementing Tokenize but we lost which one.
+    /// Prefer using `build_with_variant`
     pub fn build(s: &str) -> Option<impl Tokenize + std::fmt::Debug> {
         let analysis = Detector::analyze(s);
         let some_tuple = analysis.expect("Fix me, got no version 1");
@@ -69,26 +69,9 @@ impl Builder {
 
         let size = some_tuple.2;
 
-        // TODO: FIX FAKE BELOW
         match (app, version, size) {
-            // (x, Version::V00, 24) => Some(Token::V00(TokenV00::new(
-            //     x,
-            //     version,
-            //     Network::Kusama,
-            //     1,
-            //     11041,
-            //     Channel::Twitter,
-            // ))),
-            (x, Version::V00, 24) => Ok(Token::V00(TokenV00::from_str(s)?)),
-            // (x, Version::V01, 25) => Some(Token::V01(TokenV01::new(
-            //     x,
-            //     version,
-            //     Network::Kusama,        //    <==== WORKING BUT FAKE
-            //     1,
-            //     11041,
-            //     Channel::Twitter,
-            // ))),
-            (x, Version::V01, 25) => Ok(Token::V01(TokenV01::from_str(s)?)),
+            (_x, Version::V00, 24) => Ok(Token::V00(TokenV00::from_str(s)?)),
+            (_x, Version::V01, 25) => Ok(Token::V01(TokenV01::from_str(s)?)),
             _ => {
                 println!(
                     "This app/version set is not supported: app:{:02?} version:{:?} with length: {:?}",
@@ -98,15 +81,6 @@ impl Builder {
             }
         }
     }
-
-    // pub fn add_token(&mut self, token: Token) {
-    //     self.tokens.push(token);
-    // }
-
-    // pub fn get_handler() -> Result<RRTToken, Error> {
-    // pub fn get_handler(s: &str) -> () {
-    //     ()
-    // }
 }
 
 #[cfg(test)]
@@ -138,7 +112,7 @@ mod tests_builder {
         println!("RESULT: {:?}", tkn_variant);
 
         match tkn_variant {
-            Token::V00(t) => println!("Special: {}", t.special()),
+            Token::V00(t) => println!("Checksum: {}", t.checksum()),
             _ => println!("Some other version"),
         };
     }

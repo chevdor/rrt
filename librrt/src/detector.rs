@@ -1,6 +1,6 @@
-use crate::Error::LengthError;
 use crate::error::*;
 use crate::types::Version;
+use crate::Error::LengthError;
 use std::str::FromStr;
 
 /// The detector is not doing much parsing beside the version and the length.
@@ -8,12 +8,6 @@ use std::str::FromStr;
 /// String.
 #[derive(Debug)]
 pub struct Detector {}
-
-// pub struct MatchResult {
-//     app: Option<u8>,
-//     version: Option<Version>,
-//     length: usize,
-// }
 
 impl Detector {
     /// Takes a String and return a Tuple made of
@@ -23,11 +17,8 @@ impl Detector {
             x if x < 2 => Err(LengthError(2, s.len())),
             _ => {
                 let app = u8::from_str_radix(&s[0..2], 16).unwrap();
-
                 let version_str = &s[2..4];
                 let version = Version::from_str(version_str)?;
-
-                // TODO: handle the case when from_str returns an error
                 return Ok((Some(app), Some(version), s.len()));
             }
         }

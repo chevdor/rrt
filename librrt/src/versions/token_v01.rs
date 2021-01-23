@@ -1,6 +1,5 @@
 use crate::checksum::*;
 use crate::error::Error;
-use crate::types::*;
 use crate::utils::*;
 use crate::versions::rrtoken::Tokenize;
 use crate::*;
@@ -16,16 +15,14 @@ const TOKEN_V01_SIZE: usize = 25;
 /// Content is coded in hex.
 ///
 /// You can display your RRT token using:
-///
-/// // TODO: make compilable again once the arch is stable
-/// use rrtlib::types::{Channel, Network, Version, RRT};
-/// use rttlib::versions:token_v00::TokenV01;
-/// let token = TokenV01::new(Network::Polkadot, 1, Version::V00, 12345, Channel::Email);
+/// ```
+/// use librrt::*;
+/// let token = TokenV01::new(0, Version::V00, Network::Polkadot, 1, 12345, Channel::Email);
 /// println!("{}", token);
 /// println!("{:?}", token);
 /// println!("{:#?}", token);
 /// println!("{}", token.format_string("-"));
-///
+/// ```
 #[derive(Debug)]
 pub struct TokenV01 {
     /// A numerical index representing the App
@@ -72,7 +69,8 @@ impl FromStr for TokenV01 {
         // TODO: handle errors better
         let app = u8::from_str_radix(&s[0..2], 16).unwrap();
         let version = Version::from_str(&s[2..4])?;
-        let network = Network::from(&s[4..6]);
+        let network_index = u8::from_str_radix(&s[4..6], 16).unwrap();
+        let network = Network::from(network_index);
         let index = u8::from_str_radix(&s[6..8], 16).unwrap();
         let case_id = u64::from_str_radix(&s[8..13], 16).unwrap();
         let channel = Channel::from(&s[13..15]);
@@ -203,31 +201,6 @@ impl TokenV01 {
         }
     }
 
-    /// Allows formatting the token with separator. This is mainly used
-    /// in the cli and for debugging.
-    ///
-    /// Example:
-    /// // TODO: make the following a compilied example again once archtecture is stable
-    /// use rrtlib::types::{Channel, Network, Version, RRT};
-    /// use rttlib::versions::token_v00::TokenV01;
-    /// let token = TokenV01::new(Network::Polkadot, 1, Version::V00, 11041, Channel::Twitter);
-    /// println!("{}", token.format_string("-"))
-    ///
-    pub fn format_string(&self, sep: &str) -> String {
-        format!(
-            "{APP}{S}{VV}{S}{RG}{S}{NET}{S}{CASE}{S}{CH}{S}{TOKEN_ID}{S}{C}",
-            APP = dec2hex(self.app as u8, 2),
-            VV = dec2hex(self.version as u8, 2),
-            RG = dec2hex(self.index, 2),
-            NET = dec2hex(self.network as u8, 2),
-            CASE = dec2hex(self.case_id, 5),
-            CH = &self.channel.to_string(),
-            TOKEN_ID = self.secret,
-            S = sep,
-            C = self.checksum(),
-        ) // FIXME
-    }
-
     fn extract_checksum(s: &str) -> Result<[u8; 2], Error> {
         // TODO: can do better...
         if s.len() < TOKEN_V01_SIZE {
@@ -276,8 +249,8 @@ impl TokenV01 {
 mod tests_rrt {
     use super::*;
 
-    const CHAIN: Network = Network::Kusama;
-    const VERSION: Version = Version::V00;
+    const CHAIN: Network = Network::Westend;
+    const VERSION: Version = Version::V01;
     const APP: u8 = 0;
 
     #[test]
@@ -375,7 +348,7 @@ mod tests_rrt {
     fn it_parses_fields() {
         let t1 = TokenV01::new(APP, VERSION, CHAIN, 1, 12345, Channel::Twitter);
         assert_eq!(t1.index, 1);
-        assert_eq!(t1.version, Version::V00);
+        assert_eq!(t1.version, Version::V01);
         assert_eq!(t1.case_id, 12345);
         assert_eq!(t1.channel, Channel::Twitter);
     }
@@ -387,5 +360,39 @@ mod tests_rrt {
         println!("{}", rrt.format_string("_"));
         println!("{:?}", rrt);
         println!("{:#?}", rrt);
+    }
+
+    /// Works for strings with separators
+    /// 00_01_2A_01_03039_TW_JXBACTSP_RR
+    /// returns
+    /// 2A
+    fn get_network(s: &str) -> String {
+        let network = &s[6..8];
+        String::from(network)
+    }
+
+    #[test]
+    fn it_generates_a_token_with_valid_network_westend() {
+        let token = TokenV01::from_str("00_01_2A_01_03039_TW_JXBACTSP_RR").unwrap();
+        let network = get_network(&token.format_string("_"));
+        assert_eq!(token.network, Network::Westend);
+        assert_eq!(network, "2A"); // 42 in hex = 2A
+    }
+
+    #[test]
+    fn it_generates_a_token_with_valid_network_kusama() {
+        let token = TokenV01::from_str("00_01_02_01_03039_TW_JXBACTSP_YY").unwrap();
+        let network = get_network(&token.format_string("_"));
+        assert_eq!(token.network, Network::Kusama);
+        assert_eq!(network, "02");
+    }
+
+    #[test]
+    fn it_generates_a_token_with_valid_checksum() {
+        let s = "0001020103039TWJXBACTSPYY";
+        let token = TokenV01::from_str(s).unwrap();
+        let checksum_str = TokenV01::extract_checksum(&s).unwrap();
+        assert_eq!([89, 89], checksum_str);
+        assert_eq!(String::from_utf8_lossy(&[89, 89]), token.checksum());
     }
 }

@@ -1,7 +1,7 @@
 use crate::types::Version;
+use crate::utils::dec2hex;
 use crate::versions::*;
 use crate::Channel;
-use crate::Error;
 use crate::Network;
 use enum_dispatch::enum_dispatch;
 use std::fmt::Display;
@@ -39,6 +39,31 @@ pub trait Tokenize: std::fmt::Debug + std::fmt::Display {
     fn secret(&self) -> &String;
 
     fn checksum(&self) -> String;
+
+    /// Allows formatting the token with separator. This is mainly used
+    /// in the cli and for debugging.
+    ///
+    /// Example:
+    /// // TODO: make the following a compilied example again once archtecture is stable
+    /// use rrtlib::types::{Channel, Network, Version, RRT};
+    /// use rttlib::versions::token_v00::TokenV00;
+    /// let token = TokenV00::new(Network::Polkadot, 1, Version::V00, 11041, Channel::Twitter);
+    /// println!("{}", token.format_string("-"))
+    fn format_string(&self, sep: &str) -> String {
+        format!(
+            // 01 00 02 01 02B21 TW 12345678 75
+            "{APP}{S}{VV}{S}{NET}{S}{RG}{S}{CASE}{S}{CH}{S}{_SECRET_}{S}{C}",
+            APP = dec2hex(*self.app() as u8, 2),
+            VV = dec2hex(*self.version() as u8, 2),
+            RG = dec2hex(*self.index(), 2),
+            NET = dec2hex(*self.network() as u8, 2),
+            CASE = dec2hex(*self.case_id(), 5),
+            CH = &self.channel().to_string(),
+            _SECRET_ = self.secret(),
+            S = sep,
+            C = self.checksum().to_string()
+        )
+    }
 }
 
 #[macro_export]

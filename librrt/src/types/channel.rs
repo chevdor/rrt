@@ -9,16 +9,6 @@ pub enum Channel {
     Twitter,
 }
 
-// TODO: Use a more Rusty way...
-// pub fn channel_to_string(c: &Channel) -> Option<String> {
-//     match c {
-//         Channel::Email => Some(String::from("EM")),
-//         Channel::Twitter => Some(String::from("TW")),
-//         Channel::Matrix => Some(String::from("MX")),
-//         _ => None,
-//     }
-// }
-
 // TODO: what is better: Unknown vs using Option<Channel> ?
 impl From<&str> for Channel {
     fn from(ch: &str) -> Self {
@@ -31,9 +21,16 @@ impl From<&str> for Channel {
     }
 }
 
-impl From<String> for Channel {
-    fn from(ch: String) -> Self {
-        Channel::from(ch)
+impl Channel {
+    pub fn format_str(&self) -> String {
+        let str = match self {
+            Channel::Email => "Email",
+            Channel::Twitter => "Twitter",
+            Channel::Matrix => "Matrix",
+            _ => "n/a",
+        };
+
+        String::from(str)
     }
 }
 
@@ -43,21 +40,12 @@ impl Display for Channel {
             Channel::Email => "EM",
             Channel::Twitter => "TW",
             Channel::Matrix => "MX",
-            _ => "n/a",
+            _ => "XX",
         };
 
         write!(fmt, "{}", String::from(str))
     }
 }
-
-// pub fn string_to_channel(s: &str) -> Option<Channel> {
-//     match s.to_ascii_uppercase().as_str() {
-//         "EM" => Some(Channel::Email),
-//         "TW" => Some(Channel::Twitter),
-//         "MX" => Some(Channel::Matrix),
-//         _ => None,
-//     }
-// }
 
 #[cfg(test)]
 mod tests_rrt {

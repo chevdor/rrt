@@ -246,7 +246,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "rrt"
+name = "remark-token"
 version = "0.1.0"
 dependencies = [
  "clap",
