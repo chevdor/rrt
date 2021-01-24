@@ -1,6 +1,6 @@
 [package]
 name = "remark-token"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["chevdor <chevdor@gmail.com>"]
 edition = "2018"
 default-run = "rt"
@@ -12,3 +12,4 @@ path=  "./src/main.rs"
 [dependencies]
 clap = "3.0.0-beta.2"
 librrt = { path = "../librrt" }
+termion = "1.5.5"

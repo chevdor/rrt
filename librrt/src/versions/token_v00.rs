@@ -15,7 +15,7 @@ const TOKEN_V00_SIZE: usize = 24;
 /// You can display your RRT token using:
 /// ```
 /// use librrt::*;
-/// let token = TokenV00::new(0, Version::V00, Network::Polkadot, 1, 12345, Channel::Email);
+/// let token = TokenV00::new(0, Version::V00, Network::Known(KnownNetwork::Polkadot), 1, 12345, Channel::Email);
 /// println!("{}", token);
 /// println!("{:?}", token);
 /// println!("{:#?}", token);
@@ -61,11 +61,14 @@ impl Tokenize for TokenV00 {
 
     gen_getter!(app, &u8);
     gen_getter!(version, &Version);
-    gen_getter!(network, &Network);
     gen_getter!(channel, &Channel);
     gen_getter!(index, &u8);
     gen_getter!(case_id, &u64);
     gen_getter!(secret, &String);
+
+    fn network(&self) -> Network {
+        Network::from(self.network)
+    }
 
     fn checksum(&self) -> String {
         let chk = &self.checksum.to_string();
@@ -132,7 +135,7 @@ impl TokenV00 {
             APP = dec2hex(app as u8, 2),
             VV = dec2hex(version as u8, 2),
             RG = dec2hex(index, 2),
-            NET = dec2hex(network as u8, 2),
+            NET = dec2hex(Into::<u8>::into(network), 2),
             CASE = dec2hex(case_id, 5),
             CH = &channel.to_string(),
             _SECRET_ = secret,
@@ -158,9 +161,9 @@ impl TokenV00 {
         let raw = &cleaned[..SIZE - 1];
         let expected = algo.calculate(raw.as_bytes());
         let found: u8 = cleaned.as_bytes()[SIZE - 1];
-        println!("***** raw: {}", raw);
-        println!("***** exp: {}/{}", expected, expected as char);
-        println!("***** fnd: {}/{}", found, found as char);
+        // println!("***** raw: {}", raw);
+        // println!("***** exp: {}/{}", expected, expected as char);
+        // println!("***** fnd: {}/{}", found, found as char);
         match found == expected {
             true => Ok(()),
             false => Err(format!(
@@ -236,7 +239,7 @@ mod tests_rrt {
     use super::*;
 
     const APP: u8 = 0;
-    const CHAIN: Network = Network::Kusama;
+    const CHAIN: Network = Network::Known(KnownNetwork::Kusama);
     const VERSION: Version = Version::V00;
 
     #[test]
@@ -272,7 +275,8 @@ mod tests_rrt {
 
     #[test]
     fn it_makes_a_token_from_string() {
-        let token = TokenV00::from_str("0000010012345TWBABAEFQKD");
+        let token = TokenV00::from_str("0000010012345TWBABAEFQKK");
+        println!("token: {:?}", token);
         assert!(token.is_ok());
         assert_eq!(TOKEN_V00_SIZE, token.unwrap().to_string().len());
     }

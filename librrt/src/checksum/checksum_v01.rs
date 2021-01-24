@@ -53,10 +53,13 @@ mod tests {
         let checksum = ChecksumV01::new();
         assert_eq!(checksum.calculate(b"0"), [87, 77]);
         assert_eq!(checksum.calculate(b"1"), [88, 74]);
+        assert_eq!(checksum.calculate(b"A"), [78, 78]);
         assert_eq!(checksum.calculate(b"AA"), [78, 65]);
         assert_eq!(checksum.calculate(b"AB09"), [88, 79]);
         assert_eq!(checksum.calculate(b"ZZZZZZ"), [66, 65]);
         assert_eq!(checksum.calculate(b"010012345TWBABAEFGH"), [86, 72]);
+        assert_eq!(checksum.calculate(b"00012A01004D2TWDFKOPIKU"), [88, 67]);
+        assert_eq!(checksum.calculate(b"00010001004D2TWBQTDFFLZ"), [90, 66]);
     }
 
     #[test]

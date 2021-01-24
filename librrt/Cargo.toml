@@ -1,6 +1,6 @@
 [package]
 name = "librrt"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["chevdor <chevdor@gmail.com>"]
 edition = "2018"
 

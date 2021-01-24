@@ -17,7 +17,7 @@ const TOKEN_V01_SIZE: usize = 25;
 /// You can display your RRT token using:
 /// ```
 /// use librrt::*;
-/// let token = TokenV01::new(0, Version::V00, Network::Polkadot, 1, 12345, Channel::Email);
+/// let token = TokenV01::new(0, Version::V00, 0, 1, 12345, Channel::Email);
 /// println!("{}", token);
 /// println!("{:?}", token);
 /// println!("{:#?}", token);
@@ -32,7 +32,7 @@ pub struct TokenV01 {
     version: Version,
 
     /// Network
-    network: Network,
+    network: u8,
 
     /// Registrar index 0..255
     index: u8,
@@ -69,8 +69,8 @@ impl FromStr for TokenV01 {
         // TODO: handle errors better
         let app = u8::from_str_radix(&s[0..2], 16).unwrap();
         let version = Version::from_str(&s[2..4])?;
-        let network_index = u8::from_str_radix(&s[4..6], 16).unwrap();
-        let network = Network::from(network_index);
+        let network = u8::from_str_radix(&s[4..6], 16).unwrap();
+        // let network = Network::from(network_index);
         let index = u8::from_str_radix(&s[6..8], 16).unwrap();
         let case_id = u64::from_str_radix(&s[8..13], 16).unwrap();
         let channel = Channel::from(&s[13..15]);
@@ -79,8 +79,12 @@ impl FromStr for TokenV01 {
 
         let algo = ChecksumV01::new();
         let raw = TokenV01::format_raw(app, version, network, index, case_id, channel, &secret);
-        let checksum = ChecksumOutput::Dual(algo.calculate(raw.as_bytes()));
+        // println!("full: {}", s);
+        // println!("raw : {}", raw);
+        // assert_eq!(raw, s[0..23]);
+        // println!("extracted chk : {:?}", checksum_str);
 
+        let checksum = ChecksumOutput::Dual(algo.calculate(raw.as_bytes()));
         match checksum {
             ChecksumOutput::Dual(d) if d == checksum_str => Ok(Self {
                 app,
@@ -108,11 +112,14 @@ impl Tokenize for TokenV01 {
 
     gen_getter!(app, &u8);
     gen_getter!(version, &Version);
-    gen_getter!(network, &Network);
     gen_getter!(channel, &Channel);
     gen_getter!(index, &u8);
     gen_getter!(case_id, &u64);
     gen_getter!(secret, &String);
+
+    fn network(&self) -> Network {
+        Network::from(self.network)
+    }
 
     fn checksum(&self) -> String {
         let chk = match &self.checksum {
@@ -132,7 +139,7 @@ impl TokenV01 {
     pub fn new(
         app: u8,
         version: Version,
-        network: Network,
+        network: u8,
         index: u8,
         case_id: u64,
         channel: Channel,
@@ -152,14 +159,14 @@ impl TokenV01 {
     fn format_raw(
         app: u8,
         version: Version,
-        network: Network,
+        network: u8,
         index: u8,
         case_id: u64,
         channel: Channel,
         secret: &str,
     ) -> String {
         format!(
-            "{APP}{VV}{RG}{NET}{CASE}{CH}{_SECRET_}",
+            "{APP}{VV}{NET}{RG}{CASE}{CH}{_SECRET_}",
             APP = dec2hex(app as u8, 2),
             VV = dec2hex(version as u8, 2),
             RG = dec2hex(index, 2),
@@ -174,7 +181,7 @@ impl TokenV01 {
     pub fn new_with_secret(
         app: u8,
         version: Version,
-        network: Network,
+        network: u8,
         index: u8,
         case_id: u64,
         channel: Channel,
@@ -249,8 +256,8 @@ impl TokenV01 {
 mod tests_rrt {
     use super::*;
 
-    const CHAIN: Network = Network::Westend;
     const VERSION: Version = Version::V01;
+    const CHAIN: u8 = 2; // Kusama
     const APP: u8 = 0;
 
     #[test]
@@ -275,7 +282,8 @@ mod tests_rrt {
 
     #[test]
     fn it_makes_a_token_from_string() {
-        let token = TokenV01::from_str("1100010012345TWBABAEFQKJA");
+        let token = TokenV01::from_str("1100010012345TWBABAEFQKMV");
+        println!("token: {:?}", token);
         assert!(token.is_ok());
         assert_eq!(TOKEN_V01_SIZE, token.unwrap().to_string().len());
     }
@@ -288,7 +296,8 @@ mod tests_rrt {
 
     #[test]
     fn it_makes_a_token_from_string_with_seps() {
-        let token = TokenV01::from_str("11-01-32-00_12345 TW/BABAEFGH:GA");
+        let token = TokenV01::from_str("11-01-32-00_12345 TW/BABAEFGH:GL");
+        println!("token: {:?}", token);
         assert!(token.is_ok());
         assert_eq!(TOKEN_V01_SIZE, token.unwrap().to_string().len());
     }
@@ -310,6 +319,12 @@ mod tests_rrt {
     fn it_generates_a_token() {
         let token = TokenV01::new(APP, VERSION, CHAIN, 1, 11041, Channel::Twitter);
         assert_eq!(TOKEN_V01_SIZE, token.to_string().len());
+    }
+
+    #[test]
+    fn it_properly_calculates_checksum() {
+        let token = TokenV01::from_str("00010001004D2TWBQTDFFLZZB");
+        assert!(token.is_ok());
     }
 
     #[test]
@@ -373,26 +388,42 @@ mod tests_rrt {
 
     #[test]
     fn it_generates_a_token_with_valid_network_westend() {
-        let token = TokenV01::from_str("00_01_2A_01_03039_TW_JXBACTSP_RR").unwrap();
+        let token = TokenV01::from_str("00_01_2A_01_03039_TW_JXBACTSP_BD").expect("Invalid token");
         let network = get_network(&token.format_string("_"));
-        assert_eq!(token.network, Network::Westend);
+        assert_eq!(token.network(), Network::Known(KnownNetwork::Westend));
         assert_eq!(network, "2A"); // 42 in hex = 2A
     }
 
     #[test]
     fn it_generates_a_token_with_valid_network_kusama() {
-        let token = TokenV01::from_str("00_01_02_01_03039_TW_JXBACTSP_YY").unwrap();
+        let token = TokenV01::from_str("00_01_02_01_03039_TW_JXBACTSP_AQ").expect("Invalid token");
         let network = get_network(&token.format_string("_"));
-        assert_eq!(token.network, Network::Kusama);
+        assert_eq!(token.network(), Network::Known(KnownNetwork::Kusama));
         assert_eq!(network, "02");
     }
 
     #[test]
     fn it_generates_a_token_with_valid_checksum() {
-        let s = "0001020103039TWJXBACTSPYY";
-        let token = TokenV01::from_str(s).unwrap();
+        let s = "0001020103039TWJXBACTSPAQ";
+        let token = TokenV01::from_str(s).expect("Invalid token");
         let checksum_str = TokenV01::extract_checksum(&s).unwrap();
-        assert_eq!([89, 89], checksum_str);
-        assert_eq!(String::from_utf8_lossy(&[89, 89]), token.checksum());
+        assert_eq!([65, 81], checksum_str);
+        assert_eq!(String::from_utf8_lossy(&[65, 81]), token.checksum());
+    }
+
+    #[test]
+    fn it_generates_a_token_with_valid_checksum2() {
+        let s = "00010001004D2TWBQTDFFLZZB";
+        let token = TokenV01::from_str(s).expect("Invalid token");
+        let checksum_str = TokenV01::extract_checksum(&s).unwrap();
+        assert_eq!([90, 66], checksum_str);
+        assert_eq!(String::from_utf8_lossy(&[90, 66]), token.checksum());
+    }
+
+    #[test]
+    fn it_generates_token_for_unknown_networks() {
+        let s = "0001030103039TWJXBACTSPSX";
+        let token = TokenV01::from_str(s).expect("Invalid token");
+        assert_eq!(03u8, (token.network()).into());
     }
 }

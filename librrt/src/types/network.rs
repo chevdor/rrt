@@ -2,31 +2,31 @@ use std::fmt::Display;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Network {
+    Known(KnownNetwork),
+    Unknown(u8),
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum KnownNetwork {
     Polkadot = 0,
     Kusama = 2,
     Westend = 42,
-    Unsupported,
 }
 
-// TODO: Unknown vs using Option<Channel> ?
 impl From<&str> for Network {
     fn from(n: &str) -> Self {
-        return match &n {
-            &"00" => Network::Polkadot,
-            &"02" => Network::Kusama,
-            &"42" => Network::Westend,
-            _ => Network::Unsupported,
-        };
+        let n = u8::from_str_radix(n, 16).expect(&format!("Failed parsing {} as u8", n));
+        Network::from(n)
     }
 }
 
 impl From<u8> for Network {
     fn from(n: u8) -> Self {
-        return match &n {
-            0 => Network::Polkadot,
-            2 => Network::Kusama,
-            42 => Network::Westend,
-            _ => Network::Unsupported,
+        return match n {
+            0 => Network::Known(KnownNetwork::Polkadot),
+            2 => Network::Known(KnownNetwork::Kusama),
+            42 => Network::Known(KnownNetwork::Westend),
+            x => Network::Unknown(x),
         };
     }
 }
@@ -34,10 +34,21 @@ impl From<u8> for Network {
 impl Into<String> for Network {
     fn into(self) -> String {
         match self {
-            Network::Polkadot => String::from("Polkadot"),
-            Network::Kusama => String::from("Kusama"),
-            Network::Westend => String::from("Westend"),
-            _ => String::from("n/a"),
+            Network::Known(KnownNetwork::Polkadot) => String::from("Polkadot"),
+            Network::Known(KnownNetwork::Kusama) => String::from("Kusama"),
+            Network::Known(KnownNetwork::Westend) => String::from("Westend"),
+            Network::Unknown(n) => format!("Network {:02?}", n),
+        }
+    }
+}
+
+impl Into<u8> for Network {
+    fn into(self) -> u8 {
+        match self {
+            Network::Known(KnownNetwork::Polkadot) => 0,
+            Network::Known(KnownNetwork::Kusama) => 2,
+            Network::Known(KnownNetwork::Westend) => 42,
+            Network::Unknown(n) => n,
         }
     }
 }

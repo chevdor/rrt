@@ -32,7 +32,7 @@ pub trait Tokenize: std::fmt::Debug + std::fmt::Display {
     fn app(&self) -> &u8;
     fn version(&self) -> &Version;
 
-    fn network(&self) -> &Network;
+    fn network(&self) -> Network;
     fn index(&self) -> &u8;
     fn channel(&self) -> &Channel;
     fn case_id(&self) -> &u64;
@@ -56,7 +56,7 @@ pub trait Tokenize: std::fmt::Debug + std::fmt::Display {
             APP = dec2hex(*self.app() as u8, 2),
             VV = dec2hex(*self.version() as u8, 2),
             RG = dec2hex(*self.index(), 2),
-            NET = dec2hex(*self.network() as u8, 2),
+            NET = dec2hex(Into::<u8>::into(self.network()), 2),
             CASE = dec2hex(*self.case_id(), 5),
             CH = &self.channel().to_string(),
             _SECRET_ = self.secret(),
