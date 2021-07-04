@@ -140,7 +140,7 @@ checksum = "12b8adadd720df158f4d70dfe7ccc6adb0472d7c55ca83445f6a5ab3e36f8fb6"
 
 [[package]]
 name = "librrt"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "enum_dispatch",
  "fletcher",
@@ -273,7 +273,7 @@ dependencies = [
 
 [[package]]
 name = "remark-token"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "clap",
  "librrt",
