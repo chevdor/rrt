@@ -51,7 +51,7 @@ pub struct TokenV01 {
 
 impl Display for TokenV01 {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
-		write!(f, "{}", self.format_string(&""))
+		write!(f, "{}", self.format_string(""))
 	}
 }
 
@@ -187,7 +187,7 @@ impl TokenV01 {
 		let cleaned: String = match s.len() {
 			0..=SIZEM => format!("Invalid length. Got {}, expected {}", s.len(), SIZE),
 			SIZE => String::from(s),
-			_ => clean_token_string(&s),
+			_ => clean_token_string(s),
 		};
 
 		// If the string it too short, we cannot do much.. this is just wrong

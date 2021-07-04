@@ -33,7 +33,7 @@ impl FromStr for Version {
 	fn from_str(vstr: &str) -> std::result::Result<Self, <Self as std::str::FromStr>::Err> {
 		const START: usize = 4;
 		let v: &str = match vstr.len() {
-			2 => &vstr,
+			2 => vstr,
 			x if x < 2 => panic!("Cannot get a version in {}", vstr),
 			_ => &vstr[START..START + 2],
 		};
