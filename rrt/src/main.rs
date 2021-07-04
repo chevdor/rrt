@@ -155,7 +155,7 @@ fn main() {
 			let candidate = Builder::build_with_variant(&tkn.token);
 			match candidate {
 				Ok(t) => {
-					// println!("Checking: {}", t.format_string("_"));
+					println!("{}", t.format_string(""));
 					print_token(t);
 				}
 				Err(e) => println!("No valid token found:\n{:?}", e),
